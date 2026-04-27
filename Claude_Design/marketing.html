@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>eencyclopedia — circuits, fast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* mirrors app/globals.css HSL tokens, light theme */
+    --bg: hsl(0 0% 100%);
+    --fg: hsl(222 47% 11%);
+    --muted: hsl(210 40% 96%);
+    --muted-fg: hsl(215 16% 47%);
+    --border: hsl(214 32% 91%);
+    --card: hsl(0 0% 100%);
+    --primary: hsl(222 47% 11%);
+    --primary-fg: hsl(210 40% 98%);
+    /* one accent in oklch — circuit-trace amber, low chroma */
+    --accent: oklch(0.72 0.13 65);
+    --accent-soft: oklch(0.95 0.04 75);
+    --grid: hsl(214 32% 93%);
+    --radius: 0.5rem;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'ss01' 1;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+
+  /* HEADER (matches components/ui/header.tsx) */
+  .header {
+    position: sticky; top: 0; z-index: 30;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 80%, transparent);
+    backdrop-filter: saturate(140%) blur(8px);
+    -webkit-backdrop-filter: saturate(140%) blur(8px);
+  }
+  .header-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 24px;
+    height: 56px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { display: flex; align-items: center; gap: 24px; }
+  .brand-mark { font-family: 'JetBrains Mono', monospace; font-size: 14px; letter-spacing: -0.01em; }
+  .pill {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--border); background: var(--muted);
+    border-radius: 999px; padding: 2px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted-fg);
+  }
+  .pill .dot {
+    width: 6px; height: 6px; border-radius: 999px;
+    background: var(--accent); margin-right: 6px;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+    animation: pulse 2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+    70%  { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); }
+    100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+  }
+  .nav { display: flex; align-items: center; gap: 20px; font-size: 13px; }
+  .nav a { color: var(--muted-fg); }
+  .nav a:hover { color: var(--fg); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px;
+    height: 36px; padding: 0 14px;
+    border-radius: var(--radius);
+    font-size: 13px; font-weight: 500;
+    transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--primary); color: var(--primary-fg);
+    border: 1px solid var(--primary);
+  }
+  .btn-primary:hover { background: color-mix(in srgb, var(--primary) 90%, white); }
+  .btn-ghost { color: var(--fg); border: 1px solid var(--border); background: var(--bg); }
+  .btn-ghost:hover { background: var(--muted); }
+  .btn-lg { height: 44px; padding: 0 18px; font-size: 14px; }
+  .btn .arrow { transition: transform 160ms ease; }
+  .btn:hover .arrow { transform: translateX(2px); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    padding: 96px 0 72px;
+    overflow: hidden;
+  }
+  .hero-grid {
+    display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+    .hero { padding: 64px 0 48px; }
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted-fg);
+    margin-bottom: 20px;
+  }
+  .eyebrow .bar { width: 18px; height: 1px; background: var(--accent); }
+  h1 {
+    font-size: clamp(40px, 5.4vw, 64px);
+    line-height: 1.02; letter-spacing: -0.025em;
+    font-weight: 600; margin: 0 0 20px;
+    text-wrap: balance;
+  }
+  h1 .accent {
+    color: var(--accent);
+    font-style: italic;
+    font-weight: 500;
+  }
+  .lede {
+    font-size: 18px; line-height: 1.55; color: var(--muted-fg);
+    max-width: 52ch; margin: 0 0 28px;
+    text-wrap: pretty;
+  }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .meta-row {
+    margin-top: 28px;
+    display: flex; flex-wrap: wrap; gap: 18px 28px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted-fg);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .meta-row span { display: inline-flex; align-items: center; gap: 8px; }
+  .meta-row .tick { color: var(--accent); }
+
+  /* HERO ART — circuit board */
+  .hero-art {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: linear-gradient(180deg, var(--bg), var(--muted));
+    overflow: hidden;
+  }
+  .hero-art::before {
+    /* subtle grid */
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(circle at 50% 50%, black 55%, transparent 90%);
+  }
+  .hero-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .corner-tag {
+    position: absolute; top: 14px; left: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .corner-tag .live {
+    width: 6px; height: 6px; border-radius: 999px; background: var(--accent);
+    animation: pulse 2s ease-out infinite;
+  }
+  .corner-tag-r {
+    position: absolute; top: 14px; right: 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  /* trace path animation */
+  .trace { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; }
+  .trace-soft { stroke: color-mix(in srgb, var(--fg) 30%, transparent); }
+  .trace-flow {
+    stroke-dasharray: 4 6;
+    animation: dashflow 2.4s linear infinite;
+  }
+  @keyframes dashflow { to { stroke-dashoffset: -100; } }
+  .node { fill: var(--bg); stroke: var(--fg); stroke-width: 1.5; }
+  .node-accent { fill: var(--accent); stroke: var(--accent); }
+  .ic-rect { fill: var(--bg); stroke: var(--fg); stroke-width: 1.5; }
+  .ic-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--fg); }
+  .net-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    fill: var(--muted-fg);
+  }
+
+  /* SECTION CHROME */
+  .section { padding: 88px 0; border-top: 1px solid var(--border); }
+  .section-header { display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; margin-bottom: 56px; }
+  @media (max-width: 760px) { .section-header { grid-template-columns: 1fr; gap: 16px; margin-bottom: 40px; } }
+  .section-eyebrow {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg);
+  }
+  h2 {
+    font-size: clamp(28px, 3.4vw, 40px);
+    line-height: 1.1; letter-spacing: -0.02em;
+    font-weight: 600; margin: 0;
+    text-wrap: balance;
+  }
+  .section-blurb { color: var(--muted-fg); font-size: 16px; max-width: 56ch; }
+
+  /* WHY-IT-EXISTS — story block */
+  .story {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+    align-items: stretch;
+  }
+  @media (max-width: 820px) { .story { grid-template-columns: 1fr; } }
+  .story-card {
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px 28px 24px; background: var(--card);
+    position: relative; overflow: hidden;
+  }
+  .story-card h3 {
+    font-size: 18px; font-weight: 600; margin: 0 0 12px; letter-spacing: -0.01em;
+  }
+  .story-card p { color: var(--muted-fg); margin: 0 0 12px; font-size: 14.5px; }
+  .story-card .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted-fg); margin-bottom: 14px;
+  }
+
+  /* fake folder tree */
+  .tree {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    line-height: 1.85; color: var(--muted-fg);
+    margin-top: 8px;
+  }
+  .tree .row { display: flex; align-items: center; gap: 6px; }
+  .tree .row.lost { color: color-mix(in srgb, var(--fg) 40%, transparent); }
+  .tree .row.found {
+    color: var(--fg); background: var(--accent-soft);
+    margin-left: -6px; padding: 1px 6px; border-radius: 4px;
+    border-left: 2px solid var(--accent);
+  }
+  .tree .glyph { color: var(--muted-fg); width: 10px; display: inline-block; }
+  .tree .arrow {
+    color: var(--accent); margin-left: 6px; font-weight: 600;
+  }
+
+  /* solution side: ai recall preview */
+  .recall { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+  .msg {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; font-size: 14px;
+  }
+  .msg.user { background: var(--muted); border-color: transparent; }
+  .msg.ai { background: var(--card); }
+  .msg .role {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted-fg); text-transform: uppercase;
+    letter-spacing: 0.12em; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .msg .role .dot { width: 5px; height: 5px; border-radius: 999px; }
+  .msg.user .role .dot { background: var(--muted-fg); }
+  .msg.ai .role .dot { background: var(--accent); }
+  .msg.ai .body { color: var(--fg); }
+  .msg .ref {
+    margin-top: 8px;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted-fg);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 7px; background: var(--bg);
+  }
+  .msg .ref .swatch { width: 8px; height: 8px; background: var(--accent); border-radius: 2px; }
+
+  /* HOW IT WORKS */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  @media (max-width: 880px) { .steps { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 520px) { .steps { grid-template-columns: 1fr; } }
+  .step { padding: 24px 22px; border-right: 1px solid var(--border); position: relative; }
+  .step:last-child { border-right: none; }
+  @media (max-width: 880px) {
+    .step:nth-child(2) { border-right: none; }
+    .step:nth-child(1), .step:nth-child(2) { border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 520px) {
+    .step { border-right: none; border-bottom: 1px solid var(--border); }
+    .step:last-child { border-bottom: none; }
+  }
+  .step-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted-fg); margin-bottom: 18px;
+  }
+  .step-art {
+    height: 80px; margin-bottom: 18px;
+    display: flex; align-items: center; justify-content: flex-start;
+  }
+  .step h3 { font-size: 15px; margin: 0 0 6px; font-weight: 600; }
+  .step p { font-size: 13.5px; color: var(--muted-fg); margin: 0; line-height: 1.5; }
+
+  /* FEATURES grid */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 900px) { .features { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .features { grid-template-columns: 1fr; } }
+  .feature {
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px 22px 24px; background: var(--card);
+    transition: border-color 160ms ease, transform 160ms ease;
+  }
+  .feature:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); }
+  .feature h3 { font-size: 15px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.005em; }
+  .feature p { font-size: 13.5px; color: var(--muted-fg); margin: 0; line-height: 1.55; }
+  .feature .ico {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--muted); margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .feature .ico svg { width: 18px; height: 18px; }
+
+  /* SIM PREVIEW (coming soon) */
+  .sim-wrap {
+    border: 1px solid var(--border); border-radius: 16px;
+    overflow: hidden; background: var(--card);
+    display: grid; grid-template-columns: 1.4fr 1fr;
+  }
+  @media (max-width: 880px) { .sim-wrap { grid-template-columns: 1fr; } }
+  .sim-canvas {
+    position: relative; aspect-ratio: 16 / 10;
+    background:
+      radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%),
+      var(--bg);
+    border-right: 1px solid var(--border);
+  }
+  @media (max-width: 880px) { .sim-canvas { border-right: none; border-bottom: 1px solid var(--border); } }
+  .sim-canvas::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(circle at 50% 50%, black 50%, transparent 95%);
+  }
+  .sim-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sim-toolbar {
+    position: absolute; top: 14px; left: 14px; right: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  .sim-toolbar .left, .sim-toolbar .right {
+    display: flex; gap: 8px; align-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .sim-toolbar .chip {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 4px 8px; border-radius: 999px;
+  }
+  .sim-side {
+    padding: 28px 28px 32px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sim-side h3 { font-size: 18px; margin: 0 0 4px; font-weight: 600; letter-spacing: -0.01em; }
+  .sim-side .blurb { color: var(--muted-fg); font-size: 14px; margin: 0 0 12px; line-height: 1.55; }
+  .sim-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .sim-list li {
+    list-style: none; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13.5px; color: var(--fg);
+  }
+  .sim-list li .check {
+    flex: 0 0 auto; width: 16px; height: 16px;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: var(--bg);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-top: 2px;
+    color: var(--accent);
+  }
+  .sim-list li small { color: var(--muted-fg); display: block; margin-top: 2px; font-size: 12px; }
+  .soon-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+    background: var(--accent-soft);
+    padding: 3px 8px; border-radius: 999px;
+    width: max-content;
+  }
+
+  /* hover tooltip on sim canvas */
+  .hover-pin {
+    position: absolute;
+    width: 10px; height: 10px; border-radius: 999px;
+    background: var(--accent); border: 2px solid var(--bg);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+    animation: pulse 1.6s ease-out infinite;
+  }
+  .hover-tip {
+    position: absolute; transform: translate(-50%, calc(-100% - 14px));
+    background: var(--fg); color: var(--bg);
+    border-radius: 8px; padding: 8px 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    line-height: 1.55;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--fg) 30%, transparent);
+  }
+  .hover-tip::after {
+    content: ''; position: absolute; left: 50%; bottom: -4px;
+    width: 8px; height: 8px; background: var(--fg);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .hover-tip .k { color: color-mix(in srgb, var(--bg) 60%, transparent); }
+  .hover-tip .v { color: var(--accent); }
+
+  /* HONEST callout */
+  .callout {
+    border: 1px dashed color-mix(in srgb, var(--accent) 50%, var(--border));
+    background: var(--accent-soft);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex; gap: 14px; align-items: flex-start;
+    font-size: 14px;
+  }
+  .callout .ico {
+    flex: 0 0 auto;
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--bg); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+    color: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 600;
+  }
+  .callout .body { color: var(--fg); }
+  .callout .body strong { font-weight: 600; }
+  .callout .body span { color: var(--muted-fg); }
+
+  /* CTA strip */
+  .cta-strip {
+    margin: 96px 0 0;
+    border: 1px solid var(--border); border-radius: 16px;
+    padding: 40px 40px;
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 32px; align-items: center;
+    background:
+      radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      var(--card);
+    position: relative; overflow: hidden;
+  }
+  @media (max-width: 760px) { .cta-strip { grid-template-columns: 1fr; padding: 28px; } }
+  .cta-strip h2 { font-size: clamp(24px, 3vw, 34px); }
+  .cta-strip p { color: var(--muted-fg); margin: 10px 0 0; max-width: 48ch; }
+  .cta-strip .actions { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+  @media (max-width: 760px) { .cta-strip .actions { justify-content: flex-start; } }
+
+  /* FAQ */
+  .faq { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--border); }
+  .faq details {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 4px;
+  }
+  .faq summary {
+    list-style: none; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 16px; font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary .plus {
+    width: 20px; height: 20px; position: relative; flex: 0 0 auto;
+    color: var(--muted-fg);
+  }
+  .faq summary .plus::before, .faq summary .plus::after {
+    content: ''; position: absolute; left: 50%; top: 50%; background: currentColor;
+    transition: transform 200ms ease;
+  }
+  .faq summary .plus::before { width: 12px; height: 1.5px; transform: translate(-50%, -50%); }
+  .faq summary .plus::after  { width: 1.5px; height: 12px; transform: translate(-50%, -50%); }
+  .faq details[open] summary .plus::after { transform: translate(-50%, -50%) scaleY(0); }
+  .faq .answer {
+    color: var(--muted-fg); font-size: 14.5px; line-height: 1.6;
+    margin-top: 12px; max-width: 70ch;
+  }
+
+  /* FOOTER */
+  footer.site {
+    border-top: 1px solid var(--border);
+    margin-top: 96px;
+    padding: 40px 0 56px;
+  }
+  .foot-row {
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.1em;
+  }
+  .foot-row .links { display: flex; gap: 18px; flex-wrap: wrap; }
+  .foot-row a:hover { color: var(--fg); }
+  .disclosure {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--muted-fg); letter-spacing: 0.04em;
+    max-width: 64ch; line-height: 1.6;
+  }
+
+  /* reveal-on-scroll */
+  .reveal { opacity: 1; transform: none; transition: opacity 600ms ease, transform 600ms ease; }
+  .reveal.pending { opacity: 0; transform: translateY(8px); }
+</style>
+</head>
+<body>
+
+<!-- HEADER (matches existing app header) -->
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <a href="#" class="brand-mark">eencyclopedia</a>
+      <span class="pill"><span class="dot"></span>closed beta</span>
+    </div>
+    <nav class="nav">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#soon">What's next</a>
+      <a class="btn btn-primary" href="#cta">Request access</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow"><span class="bar"></span>For working electronics engineers</div>
+        <h1>Never lose a circuit <span class="accent">you've already drawn.</span></h1>
+        <p class="lede">eencyclopedia indexes every schematic you upload — KiCad, in, AI summary out — so a year from now you can ask <span class="mono" style="color:var(--fg)">"that low-pass I made for the audio jack?"</span> and actually get it back. Search, recall, explain, improve.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary btn-lg" href="#cta">
+            Request beta access
+            <svg class="arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
+          <a class="btn btn-ghost btn-lg" href="#how">See how it works</a>
+        </div>
+        <div class="meta-row">
+          <span><span class="tick mono">✓</span> Upload .kicad_sch</span>
+          <span><span class="tick mono">✓</span> EE-tuned AI</span>
+          <span><span class="tick mono">✓</span> Citations included</span>
+          <span><span class="tick mono">✓</span> Free in beta</span>
+        </div>
+      </div>
+
+      <!-- Hero art: live circuit -->
+      <div class="hero-art" aria-hidden="true">
+        <span class="corner-tag"><span class="live"></span>circuit_042.kicad_sch</span>
+        <span class="corner-tag-r">RENDER · SVG</span>
+        <svg viewBox="0 0 480 480" preserveAspectRatio="xMidYMid meet">
+          <!-- supply rail (top) -->
+          <g class="trace trace-soft">
+            <path d="M60 80 H420" />
+          </g>
+          <text class="net-label" x="60" y="70">VIN</text>
+
+          <!-- ground rail (bottom) -->
+          <g class="trace trace-soft">
+            <path d="M60 400 H420" />
+          </g>
+          <text class="net-label" x="60" y="418">GND</text>
+
+          <!-- IC center -->
+          <rect class="ic-rect" x="180" y="200" width="120" height="80" rx="4" />
+          <text class="ic-label" x="194" y="220">U1 · OPA</text>
+          <text class="ic-label" x="194" y="234" style="fill: var(--muted-fg);">amp_4.6</text>
+
+          <!-- left input divider -->
+          <g>
+            <path class="trace trace-soft" d="M60 80 V150" />
+            <rect class="ic-rect" x="48" y="150" width="24" height="50" rx="3" />
+            <text class="ic-label" x="78" y="180">R1</text>
+            <text class="ic-label" x="78" y="194" style="fill: var(--muted-fg);">10k</text>
+            <path class="trace trace-soft" d="M60 200 V240" />
+            <rect class="ic-rect" x="48" y="240" width="24" height="50" rx="3" />
+            <text class="ic-label" x="78" y="270">R2</text>
+            <text class="ic-label" x="78" y="284" style="fill: var(--muted-fg);">10k</text>
+            <path class="trace trace-soft" d="M60 290 V400" />
+            <!-- node out to opamp -->
+            <path class="trace trace-soft" d="M60 220 H180" />
+            <circle class="node" cx="60" cy="220" r="3.5" />
+          </g>
+
+          <!-- right output -->
+          <path class="trace trace-soft" d="M300 240 H420 V400" />
+          <rect class="ic-rect" x="370" y="120" width="24" height="50" rx="3" />
+          <text class="ic-label" x="332" y="150">RL</text>
+          <text class="ic-label" x="332" y="164" style="fill: var(--muted-fg);">1k</text>
+          <path class="trace trace-soft" d="M382 80 V120" />
+          <path class="trace trace-soft" d="M382 170 V240" />
+          <circle class="node" cx="382" cy="240" r="3.5" />
+
+          <!-- feedback loop -->
+          <path class="trace trace-soft" d="M240 200 V160 H340 V240" />
+
+          <!-- live signal trace (animated) -->
+          <path class="trace trace-flow" d="M60 220 H180" />
+          <path class="trace trace-flow" d="M300 240 H420" />
+          <path class="trace trace-flow" d="M240 200 V160 H340 V240" />
+
+          <!-- net label -->
+          <text class="net-label" x="100" y="212">VOUT</text>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY IT EXISTS -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div>
+        <div class="section-eyebrow">Why this exists</div>
+      </div>
+      <div>
+        <h2>I built this because I kept losing my own work.</h2>
+        <p class="section-blurb" style="margin-top:14px;">Six months in, you've drawn a hundred schematics across a dozen projects. The one you need is buried four folders deep with a name like <span class="mono">test_v3_final_FINAL2.kicad_sch</span>. So you redraw it. Again. eencyclopedia is the index I wish I'd had.</p>
+      </div>
+    </div>
+
+    <div class="story">
+      <div class="story-card">
+        <span class="tag">Before · the folder graveyard</span>
+        <h3>Where good circuits go to die.</h3>
+        <p>Hard drives full of schematics. No tags. No descriptions. No way to ask "did I already solve this?"</p>
+        <div class="tree">
+          <div class="row"><span class="glyph">▸</span>~/projects</div>
+          <div class="row" style="padding-left:14px;"><span class="glyph">▸</span>audio_thing_2024/</div>
+          <div class="row" style="padding-left:14px;"><span class="glyph">▸</span>weekend_hacks/</div>
+          <div class="row lost" style="padding-left:28px;"><span class="glyph">▸</span>test_v2/</div>
+          <div class="row lost" style="padding-left:42px;"><span class="glyph">▸</span>old/</div>
+          <div class="row lost" style="padding-left:56px;"><span class="glyph">·</span>final_FINAL.kicad_sch</div>
+          <div class="row lost" style="padding-left:56px;"><span class="glyph">·</span>copy_of_final.kicad_sch</div>
+          <div class="row found" style="padding-left:56px;"><span class="glyph">·</span>untitled_47.kicad_sch <span class="arrow">← the one you need</span></div>
+          <div class="row lost" style="padding-left:42px;"><span class="glyph">·</span>backup.kicad_sch</div>
+        </div>
+      </div>
+
+      <div class="story-card">
+        <span class="tag">After · ask the encyclopedia</span>
+        <h3>Recall, explain, improve.</h3>
+        <p>Every upload gets a one-pass AI summary, embedded for retrieval. Months later, you describe what it did — not what you named it.</p>
+        <div class="recall">
+          <div class="msg user">
+            <div class="role"><span class="dot"></span>You</div>
+            <div class="body">that low-pass I made last spring for the audio jack — what was the cutoff?</div>
+          </div>
+          <div class="msg ai">
+            <div class="role"><span class="dot"></span>eencyclopedia</div>
+            <div class="body">Found it. Single-pole RC, R = 10k, C = 15n → fc ≈ <span class="mono" style="color:var(--accent);">1.06 kHz</span>. You used it to roll off hiss above the voice band. Want to bump it to 3.4 kHz for full telephone bandwidth?</div>
+            <a class="ref" href="#"><span class="swatch"></span>untitled_47.kicad_sch · Apr 2026</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how">
+    <div class="section-header">
+      <div>
+        <div class="section-eyebrow">How it works</div>
+      </div>
+      <div>
+        <h2>Drop in a .kicad_sch. Get an indexed, queryable circuit.</h2>
+        <p class="section-blurb" style="margin-top:14px;">No workflow change. Same file you save in KiCad. eencyclopedia handles the rest — parse, render, summarise, embed, store.</p>
+      </div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01 · UPLOAD</div>
+        <div class="step-art">
+          <svg width="64" height="64" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="8" y="6" width="28" height="36" rx="3" stroke="var(--fg)"/>
+            <path d="M14 18h16M14 24h16M14 30h10" stroke="var(--muted-fg)"/>
+            <path d="M30 36 l8 -8" stroke="var(--accent)" stroke-width="2"/>
+            <path d="M38 28 v6 M38 28 h-6" stroke="var(--accent)" stroke-width="2"/>
+          </svg>
+        </div>
+        <h3>Drop a schematic</h3>
+        <p>Single .kicad_sch file. Up to 5 components in V0 (cap rises with the platform).</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02 · PARSE & RENDER</div>
+        <div class="step-art">
+          <svg width="64" height="64" viewBox="0 0 48 48" fill="none" stroke-width="1.5">
+            <rect x="8" y="14" width="32" height="20" rx="2" stroke="var(--fg)" fill="none"/>
+            <path d="M14 24 H20 M28 24 H34" stroke="var(--muted-fg)"/>
+            <rect x="20" y="20" width="8" height="8" stroke="var(--fg)" fill="var(--bg)"/>
+            <circle cx="14" cy="24" r="1.5" fill="var(--accent)"/>
+            <circle cx="34" cy="24" r="1.5" fill="var(--accent)"/>
+          </svg>
+        </div>
+        <h3>Render to SVG</h3>
+        <p>S-exp → AST → clean schematic SVG. Every net and designator becomes a hover target.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03 · SUMMARISE</div>
+        <div class="step-art">
+          <svg width="64" height="64" viewBox="0 0 48 48" fill="none" stroke-width="1.5">
+            <circle cx="24" cy="24" r="10" stroke="var(--fg)"/>
+            <circle cx="24" cy="24" r="2.5" fill="var(--accent)" stroke="none"/>
+            <path d="M24 14 v-6 M24 40 v-6 M14 24 h-6 M40 24 h-6" stroke="var(--muted-fg)"/>
+            <path d="M16.9 16.9 l-4.2 -4.2 M35.3 35.3 l-4.2 -4.2 M16.9 31.1 l-4.2 4.2 M35.3 12.7 l-4.2 4.2" stroke="var(--muted-fg)"/>
+          </svg>
+        </div>
+        <h3>AI extracts intent</h3>
+        <p>Topology, rails, key components, design notes. Stored as structured JSON — not just prose.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04 · RECALL</div>
+        <div class="step-art">
+          <svg width="64" height="64" viewBox="0 0 48 48" fill="none" stroke-width="1.5">
+            <circle cx="20" cy="20" r="10" stroke="var(--fg)"/>
+            <path d="M28 28 l8 8" stroke="var(--accent)" stroke-width="2"/>
+            <path d="M16 20 H24 M20 16 V24" stroke="var(--muted-fg)"/>
+          </svg>
+        </div>
+        <h3>Ask it anything</h3>
+        <p>Natural-language queries hit a hybrid (FTS + vector) index. Answers cite the exact circuit.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <div class="section-header">
+      <div>
+        <div class="section-eyebrow">What's in V0</div>
+      </div>
+      <div>
+        <h2>An EE's reference, not a generic chatbot.</h2>
+        <p class="section-blurb" style="margin-top:14px;">Grounded in textbooks, datasheets, and your own corpus. Refuses non-electronics topics. Always shows the math.</p>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
+        </div>
+        <h3>Search circuits, not parts</h3>
+        <p>Curated reference designs with filters for supply, topology, and citation source. Find what works, then fork it.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7"/></svg>
+        </div>
+        <h3>Hover-to-explain</h3>
+        <p>Every wire and component is interactive. Hover for tooltips, click to ask the AI about that exact net.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v4H4zM4 10h16v4H4zM4 16h10v4H4z"/></svg>
+        </div>
+        <h3>Math, not vibes</h3>
+        <p>Every answer ships with the derivation in KaTeX, units, and a citation. Verify before you fab.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        </div>
+        <h3>Twelve calculators, instant</h3>
+        <p>Ohm, dividers, RC/RL, reactance, resonance, op-amp gain, LED resistor. Pure JS — no AI tax.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4.5 2 7L12 16l-6.5 4.5 2 -7L2 9h7z"/></svg>
+        </div>
+        <h3>Favorites & library</h3>
+        <p>Star components and circuits. Build a personal reference shelf alongside the public library.</p>
+      </div>
+      <div class="feature">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 13h4M7 16h6"/></svg>
+        </div>
+        <h3>Cited, not hallucinated</h3>
+        <p>RAG over textbooks, app notes, and your circuits. If it can't be cited, the assistant says so out loud.</p>
+      </div>
+    </div>
+
+    <div style="margin-top: 28px;">
+      <div class="callout">
+        <div class="ico">i</div>
+        <div class="body">
+          <strong>Honest about the AI.</strong>
+          <span> The encyclopedia is a growing retrieval pool, not a model that learns from your data. It searches a curated knowledge base — datasheets, textbooks, public circuits — and reasons over them. The encyclopedia improves as the corpus grows; the model itself doesn't.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMING SOON -->
+  <section class="section" id="soon">
+    <div class="section-header">
+      <div>
+        <div class="section-eyebrow">Coming next</div>
+      </div>
+      <div>
+        <h2>Live values on hover. Embedded SPICE. Skip the design loop.</h2>
+        <p class="section-blurb" style="margin-top:14px;">Tell the AI what you need — bandwidth, supply, load — and get a working circuit and the numbers behind it. Hover any net to see voltage, current, transient response, all in-line.</p>
+      </div>
+    </div>
+
+    <div class="sim-wrap">
+      <!-- canvas -->
+      <div class="sim-canvas" id="simCanvas">
+        <div class="sim-toolbar">
+          <div class="left">
+            <span class="chip">.tran 5ms</span>
+            <span class="chip">@ VIN=5V</span>
+          </div>
+          <div class="right">
+            <span class="chip">ngspice · wasm</span>
+          </div>
+        </div>
+
+        <svg viewBox="0 0 600 380" preserveAspectRatio="xMidYMid meet">
+          <!-- rails -->
+          <path class="trace trace-soft" d="M60 60 H540" />
+          <path class="trace trace-soft" d="M60 320 H540" />
+          <text class="net-label" x="60" y="50">+5V</text>
+          <text class="net-label" x="60" y="338">GND</text>
+
+          <!-- left input -->
+          <path class="trace trace-soft" d="M120 60 V140" />
+          <rect class="ic-rect" x="108" y="140" width="24" height="50" rx="3" />
+          <text class="ic-label" x="138" y="170">R1</text>
+          <text class="ic-label" x="138" y="184" style="fill: var(--muted-fg);">4.7k</text>
+
+          <!-- node A -->
+          <circle class="node" cx="120" cy="200" r="3.5" id="nodeA" />
+          <text class="net-label" x="58" y="204">VA</text>
+          <path class="trace trace-soft" d="M120 190 V200" />
+          <path class="trace trace-soft" d="M120 200 H260" />
+
+          <!-- cap to GND -->
+          <path class="trace trace-soft" d="M120 200 V250" />
+          <g stroke="var(--fg)" stroke-width="1.5" fill="none">
+            <path d="M108 250 H132" />
+            <path d="M104 260 H136" />
+          </g>
+          <path class="trace trace-soft" d="M120 260 V320" />
+          <text class="ic-label" x="138" y="258">C1 · 100n</text>
+
+          <!-- opamp -->
+          <polygon class="ic-rect" points="260,170 260,230 320,200" />
+          <text class="ic-label" x="266" y="194">+</text>
+          <text class="ic-label" x="266" y="220">-</text>
+
+          <!-- output node B -->
+          <path class="trace trace-soft" d="M320 200 H460" />
+          <circle class="node node-accent" cx="460" cy="200" r="4" id="nodeB" />
+          <text class="net-label" x="468" y="204">VOUT</text>
+
+          <!-- feedback -->
+          <path class="trace trace-soft" d="M260 220 V260 H400 V200" />
+          <rect class="ic-rect" x="388" y="240" width="24" height="40" rx="3" />
+          <text class="ic-label" x="418" y="266">Rf</text>
+          <text class="ic-label" x="418" y="280" style="fill: var(--muted-fg);">22k</text>
+
+          <!-- load -->
+          <path class="trace trace-soft" d="M460 200 V260" />
+          <rect class="ic-rect" x="448" y="260" width="24" height="40" rx="3" />
+          <text class="ic-label" x="478" y="286">RL · 10k</text>
+          <path class="trace trace-soft" d="M460 300 V320" />
+
+          <!-- animated flow -->
+          <path class="trace trace-flow" d="M120 60 V140" />
+          <path class="trace trace-flow" d="M120 200 H260" />
+          <path class="trace trace-flow" d="M320 200 H460" />
+          <path class="trace trace-flow" d="M260 220 V260 H400 V200" />
+        </svg>
+
+        <!-- Hover tooltip on the output node -->
+        <div class="hover-pin" style="left: 76.7%; top: 53%;"></div>
+        <div class="hover-tip" style="left: 76.7%; top: 53%;">
+          <div><span class="k">net</span>  <span class="v">VOUT</span></div>
+          <div><span class="k">V</span>     <span class="v">3.214 V</span></div>
+          <div><span class="k">I_load</span> <span class="v">321 µA</span></div>
+          <div><span class="k">−3 dB</span>  <span class="v">3.39 kHz</span></div>
+        </div>
+      </div>
+
+      <!-- side panel -->
+      <div class="sim-side">
+        <span class="soon-badge"><span class="mono">●</span> Shipping next</span>
+        <h3>Tell it what you need. Get the circuit.</h3>
+        <p class="blurb">Embedded SPICE means you skip the topology hunt. Specify the spec; the AI returns a circuit, the simulation, and the math behind it.</p>
+        <ul class="sim-list">
+          <li>
+            <span class="check">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+            </span>
+            <div>
+              Hover any net for live values
+              <small>Voltage, current, transient — read straight off the schematic.</small>
+            </div>
+          </li>
+          <li>
+            <span class="check">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+            </span>
+            <div>
+              Embedded ngspice (WASM)
+              <small>.tran, .ac, .dc — runs in the browser, results cached per circuit.</small>
+            </div>
+          </li>
+          <li>
+            <span class="check">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+            </span>
+            <div>
+              "I need X — design it"
+              <small>Specify spec. Get topology, parts, simulation, and the derivation.</small>
+            </div>
+          </li>
+          <li>
+            <span class="check">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 7"/></svg>
+            </span>
+            <div>
+              In-depth circuit analysis
+              <small>Stability, noise, sensitivity, corner cases — all annotated on the SVG.</small>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="section-header">
+      <div>
+        <div class="section-eyebrow">FAQ</div>
+      </div>
+      <div>
+        <h2>Honest answers.</h2>
+      </div>
+    </div>
+
+    <div class="faq">
+      <details>
+        <summary>Who is this for? <span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer">Working electronics engineers, EE students, and serious hobbyists who already use KiCad and have a folder of schematics they can't keep track of. If you've ever redrawn a circuit because you couldn't find the original, this is for you.</div>
+      </details>
+      <details>
+        <summary>Does the AI train on my circuits? <span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer">No. Your uploads are embedded for retrieval inside your account. We don't fine-tune any model on your data. The encyclopedia improves as the public knowledge base grows — datasheets, textbooks, and circuits people choose to share publicly.</div>
+      </details>
+      <details>
+        <summary>What file formats? <span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer">.kicad_sch in V0. We parse the S-expression, normalise to a canonical subset, and render to SVG with hover hooks. Other EDA tools are on the roadmap once we're confident the KiCad path is rock solid.</div>
+      </details>
+      <details>
+        <summary>How big can a circuit be? <span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer">V0 caps at 5 components per circuit so the AI summary stays accurate. The cap rises to 10 in V1 and 20 in V2 as the parser, render pipeline, and prompts harden.</div>
+      </details>
+      <details>
+        <summary>Is this fine-tuned? <span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer">Not yet — and we're upfront about it. V0 is a strong system prompt + tool use (calculators, RAG, parts lookup) over a frontier model. Once we have a few thousand thumbs-up signals, fine-tuning a smaller model on the corpus is on the roadmap.</div>
+      </details>
+      <details>
+        <summary>Pricing? <span class="plus" aria-hidden="true"></span></summary>
+        <div class="answer">Free during closed beta. Paid tiers ship at public launch — Free (10 ops/mo, public circuits), Pro ($12/mo, 100 ops, private circuits), Pro+ ($29/mo, 400 ops, API + Opus access). Solo-built and bootstrapped, so pricing reflects real cost.</div>
+      </details>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-strip" id="cta">
+    <div>
+      <h2>Stop redrawing circuits you've already drawn.</h2>
+      <p>Closed beta is open. Magic-link sign-in, one upload, and you're indexed for life.</p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-primary btn-lg" href="#">
+        Request beta access
+        <svg class="arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </a>
+      <a class="btn btn-ghost btn-lg" href="#">View source</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <main>
+    <div class="foot-row">
+      <div>© 2026 eencyclopedia · solo-built, bootstrapped</div>
+      <div class="links">
+        <a href="#">Library</a>
+        <a href="#">Calc</a>
+        <a href="#">Docs</a>
+        <a href="#">Status</a>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+      </div>
+    </div>
+    <p class="disclosure">AI-assisted output. Verify against datasheets and standards before fabrication. eencyclopedia is in closed beta — features marked <span style="color:var(--accent);">"shipping next"</span> are not yet live.</p>
+  </main>
+</footer>
+
+<script>
+  // reveal-on-scroll for sections (skip above-the-fold hero so it's visible immediately)
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        e.target.classList.remove('pending');
+        io.unobserve(e.target);
+      }
+    }
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.section, .cta-strip').forEach(el => {
+    const rect = el.getBoundingClientRect();
+    // only animate elements below the initial viewport
+    if (rect.top > window.innerHeight * 0.6) {
+      el.classList.add('reveal', 'pending');
+      io.observe(el);
+    }
+  });
+  // safety net: if anything is still pending after 1.2s, reveal it
+  setTimeout(() => {
+    document.querySelectorAll('.pending').forEach(el => el.classList.remove('pending'));
+  }, 1200);
+
+  // hover-tip drift on sim canvas (small idle motion to feel alive)
+  const canvas = document.getElementById('simCanvas');
+  if (canvas) {
+    const pin = canvas.querySelector('.hover-pin');
+    const tip = canvas.querySelector('.hover-tip');
+    let t = 0;
+    function tick() {
+      t += 0.016;
+      const dx = Math.sin(t * 0.9) * 0.6;
+      const dy = Math.cos(t * 1.1) * 0.4;
+      const left = 76.7 + dx;
+      const top  = 53   + dy;
+      pin.style.left = left + '%';
+      pin.style.top  = top  + '%';
+      tip.style.left = left + '%';
+      tip.style.top  = top  + '%';
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Finish setup · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .ob-wrap { max-width: 560px; margin: 40px auto 80px; padding: 0 24px; }
+  .ob-step { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .ob-step .bar { width: 18px; height: 1px; background: var(--accent); }
+  h1 { font-size: 28px; letter-spacing: -0.02em; font-weight: 600; margin: 0 0 6px; }
+  .lede { color: var(--muted-fg); margin: 0 0 24px; font-size: 14.5px; }
+  .username-row { display: flex; align-items: stretch; }
+  .username-row .prefix {
+    height: 36px; padding: 0 12px;
+    border: 1px solid var(--border); border-right: 0; border-radius: var(--radius) 0 0 var(--radius);
+    background: var(--muted); color: var(--muted-fg);
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    display: flex; align-items: center;
+  }
+  .username-row .input { border-radius: 0 var(--radius) var(--radius) 0; }
+  .check-ok { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 6px; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mode {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px 12px;
+    cursor: pointer; transition: border-color 120ms ease, background 120ms ease;
+  }
+  .mode.active { border-color: var(--fg); background: var(--muted); }
+  .mode h4 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+  .mode p { margin: 0; font-size: 12.5px; color: var(--muted-fg); line-height: 1.5; }
+  .mode .preview { margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+  .checkbox-row { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; }
+  .checkbox-row input { margin-top: 3px; accent-color: var(--accent); }
+  .checkbox-row .body { font-size: 13.5px; color: var(--muted-fg); line-height: 1.5; }
+  .checkbox-row strong { color: var(--fg); font-weight: 600; }
+  section.field { margin-bottom: 22px; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="marketing.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>setup</span></div>
+  <nav class="nav"><a href="#">Sign out</a></nav>
+</div></header>
+
+<div class="ob-wrap">
+  <div class="ob-step"><span class="bar"></span>Finish setup · 1 of 1</div>
+  <h1>Pick a username, set your defaults.</h1>
+  <p class="lede">This is your public handle and the prefix on every URL you share. Choose well — it's hard to change later.</p>
+
+  <section class="field">
+    <label class="label" for="username">Username</label>
+    <div class="username-row">
+      <span class="prefix mono">@</span>
+      <input class="input" id="username" type="text" value="krish" autocomplete="off"/>
+    </div>
+    <div class="check-ok mono">✓ available · profile will live at /profile/krish</div>
+  </section>
+
+  <section class="field">
+    <label class="label">Explanation mode</label>
+    <div class="modes">
+      <label class="mode active">
+        <input type="radio" name="mode" hidden checked/>
+        <h4>Intuitive + math</h4>
+        <p>Plain-English explanation followed by the derivation. Default.</p>
+        <div class="preview">"R drops the LED current to 12 mA. I = (5 − 2.1)/240 ≈ 12.1 mA."</div>
+      </label>
+      <label class="mode">
+        <input type="radio" name="mode" hidden/>
+        <h4>Math only</h4>
+        <p>KaTeX derivation, units, citations. No prose.</p>
+        <div class="preview">"I = (Vs − Vf)/R = 2.9V/240Ω = 12.08 mA."</div>
+      </label>
+    </div>
+  </section>
+
+  <section class="field">
+    <label class="label">Preferred units</label>
+    <div class="modes">
+      <label class="mode active"><input type="radio" name="units" hidden checked/><h4>SI</h4><p>V, A, Ω, F, H, Hz. The good ones.</p></label>
+      <label class="mode"><input type="radio" name="units" hidden/><h4>Imperial-friendly</h4><p>SI for electrical, mil/inch for mechanical.</p></label>
+    </div>
+  </section>
+
+  <section class="field">
+    <label class="checkbox-row">
+      <input type="checkbox" checked/>
+      <div class="body"><strong>I agree to the Terms and Privacy Policy.</strong> AI output is informational. Verify against datasheets and standards before fabrication.</div>
+    </label>
+  </section>
+
+  <div class="actions">
+    <button class="btn btn-ghost" type="button">Skip for now</button>
+    <button class="btn btn-primary" type="button">Continue → Library</button>
+  </div>
+</div>
+</body></html>

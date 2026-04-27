@@ -1,0 +1,307 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Library · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .toolbar .input-wrap { flex: 1; min-width: 240px; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter {
+    height: 30px; padding: 0 11px; font-size: 12px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--bg); color: var(--muted-fg); cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .filter.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .filter:hover:not(.active) { background: var(--muted); color: var(--fg); }
+  .grid {
+    display: grid; gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  .ckt {
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); overflow: hidden;
+    transition: border-color 160ms ease, transform 160ms ease;
+    display: flex; flex-direction: column;
+  }
+  .ckt:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); transform: translateY(-1px); }
+  .ckt-thumb {
+    aspect-ratio: 16 / 9; position: relative;
+    background: linear-gradient(180deg, var(--bg), var(--muted));
+    border-bottom: 1px solid var(--border);
+  }
+  .ckt-thumb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ckt-thumb .star {
+    position: absolute; top: 10px; right: 10px;
+    width: 26px; height: 26px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--border);
+    display: grid; place-items: center; color: var(--muted-fg);
+    cursor: pointer;
+  }
+  .ckt-thumb .star.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .ckt-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .ckt-body h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+  .ckt-body p { margin: 0; font-size: 13px; color: var(--muted-fg); line-height: 1.5; }
+  .ckt-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 6px; }
+  .ckt-author { display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); }
+  .ckt-author .av { width: 16px; height: 16px; border-radius: 999px; background: var(--accent); display: grid; place-items: center; color: var(--bg); font-size: 9px; font-weight: 700; }
+  .group-h { display: flex; align-items: baseline; gap: 12px; margin: 28px 0 14px; }
+  .group-h h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.005em; }
+  .group-h .count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav">
+    <a href="circuit-new.html" class="btn btn-primary btn-sm">+ Upload</a>
+    <a href="library.html" class="active">Library</a>
+    <a href="calc.html">Calc</a>
+    <a href="chat.html">Chat</a>
+    <a href="favorites.html">★</a>
+    <a href="profile.html">@krish</a>
+    <span class="sep"></span>
+    <a href="#">Sign out</a>
+  </nav>
+</div></header>
+
+<main class="app">
+  <div class="page-head">
+    <div>
+      <div class="crumb">/library</div>
+      <h1>Library</h1>
+      <p class="sub">Your circuits and the public corpus, indexed and searchable.</p>
+    </div>
+    <a class="btn btn-primary" href="circuit-new.html">+ Upload .kicad_sch</a>
+  </div>
+
+  <div class="toolbar">
+    <div class="input-wrap">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <input class="input with-icon" type="search" placeholder="Search by topology, supply, intent — &quot;low-pass for audio&quot;"/>
+    </div>
+    <div class="filters">
+      <button class="filter active">All</button>
+      <button class="filter">Mine</button>
+      <button class="filter">Public</button>
+      <button class="filter">Starred</button>
+      <span class="sep" style="width:1px;height:20px;background:var(--border);"></span>
+      <button class="filter">Analog</button>
+      <button class="filter">Digital</button>
+      <button class="filter">Power</button>
+      <button class="filter">RF</button>
+    </div>
+  </div>
+
+  <div class="group-h">
+    <h2>Recently uploaded</h2>
+    <span class="count mono">14 · YOURS</span>
+  </div>
+
+  <div class="grid">
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star on" title="Starred">★</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="40" y="60" width="22" height="40" rx="3"/>
+          <path class="sch-trace" d="M51 100 V125"/>
+          <g stroke="currentColor" stroke-width="1.5" fill="none" style="color:var(--fg)"><path d="M40 125 H62"/><path d="M36 132 H66"/></g>
+          <path class="sch-trace" d="M51 132 V140"/>
+          <path class="sch-trace" d="M62 80 H160"/>
+          <polygon class="sch-ic" points="160,60 160,100 200,80"/>
+          <path class="sch-trace" d="M200 80 H290"/>
+          <path class="sch-flow" d="M51 40 V60 M62 80 H160 M200 80 H290"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>Audio jack low-pass · v3</h3>
+        <p>Single-pole RC at fc ≈ 1.06 kHz, used to roll off hiss above the voice band before the ADC.</p>
+        <div class="ckt-meta">
+          <span class="tag">RC</span>
+          <span class="tag">analog</span>
+          <span class="tag">3 parts</span>
+          <span class="tag accent"><span class="swatch"></span>private</span>
+        </div>
+        <div class="ckt-author"><span class="av">k</span>@krish · 2d ago</div>
+      </div>
+    </a>
+
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star" title="Star">☆</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="120" y="70" width="80" height="40" rx="3"/>
+          <text class="sch-lbl" x="130" y="92">U1 · LDO</text>
+          <text class="sch-lblmu" x="130" y="104">3v3</text>
+          <path class="sch-trace" d="M40 40 V70"/>
+          <path class="sch-trace" d="M280 40 V70"/>
+          <path class="sch-trace" d="M40 110 V140"/>
+          <path class="sch-trace" d="M280 110 V140"/>
+          <path class="sch-flow" d="M40 40 H280"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>5V → 3V3 LDO regulator</h3>
+        <p>AP2112K-3.3 reference layout with 1µF in/out caps. Used for sensor rail on tiny battery boards.</p>
+        <div class="ckt-meta">
+          <span class="tag">LDO</span>
+          <span class="tag">power</span>
+          <span class="tag">5 parts</span>
+        </div>
+        <div class="ckt-author"><span class="av">k</span>@krish · 1w ago</div>
+      </div>
+    </a>
+
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star on" title="Starred">★</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="60" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="160" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="240" y="65" width="22" height="50" rx="3"/>
+          <path class="sch-trace" d="M71 40 V65 M71 115 V140"/>
+          <path class="sch-trace" d="M171 40 V65 M171 115 V140"/>
+          <path class="sch-trace" d="M251 40 V65 M251 115 V140"/>
+          <path class="sch-trace" d="M82 90 H160 M182 90 H240"/>
+          <path class="sch-flow" d="M82 90 H260"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>Logic-level translator (3 ch)</h3>
+        <p>Bidirectional 3V3↔5V converter for I²C lines. NMOS + pull-ups, the Sparkfun classic.</p>
+        <div class="ckt-meta">
+          <span class="tag">level-shift</span>
+          <span class="tag">digital</span>
+          <span class="tag">5 parts</span>
+        </div>
+        <div class="ckt-author"><span class="av">k</span>@krish · 3w ago</div>
+      </div>
+    </a>
+
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star" title="Star">☆</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <polygon class="sch-ic" points="120,60 120,120 180,90"/>
+          <text class="sch-lbl" x="128" y="84">+</text>
+          <text class="sch-lbl" x="128" y="110">-</text>
+          <rect class="sch-ic" x="60" y="70" width="22" height="40" rx="3"/>
+          <rect class="sch-ic" x="200" y="70" width="22" height="40" rx="3"/>
+          <path class="sch-trace" d="M71 40 V70 M71 110 V140"/>
+          <path class="sch-trace" d="M82 90 H120 M180 90 H280"/>
+          <path class="sch-trace" d="M120 110 V130 H230 V90"/>
+          <path class="sch-flow" d="M82 90 H280"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>Non-inverting amp · gain ≈ 5</h3>
+        <p>OPA340 with Rf=39k, Rin=10k. Drives a 10k load from a 1MΩ piezo source.</p>
+        <div class="ckt-meta">
+          <span class="tag">opamp</span>
+          <span class="tag">analog</span>
+          <span class="tag">4 parts</span>
+        </div>
+        <div class="ckt-author"><span class="av">k</span>@krish · 1mo ago</div>
+      </div>
+    </a>
+  </div>
+
+  <div class="group-h">
+    <h2>From the public corpus</h2>
+    <span class="count mono">2,184 · CURATED + COMMUNITY</span>
+  </div>
+
+  <div class="grid">
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star" title="Star">☆</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="80" y="60" width="160" height="60" rx="4"/>
+          <text class="sch-lbl" x="92" y="84">U1 · MCU</text>
+          <text class="sch-lblmu" x="92" y="98">RP2040</text>
+          <path class="sch-trace" d="M100 40 V60 M220 40 V60"/>
+          <path class="sch-trace" d="M100 120 V140 M220 120 V140"/>
+          <path class="sch-flow" d="M100 40 V60"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>RP2040 minimum boot</h3>
+        <p>Decoupling, crystal-less, USB pins, boot select. The 5-component cap means no flash — V1 lifts that.</p>
+        <div class="ckt-meta">
+          <span class="tag">mcu</span>
+          <span class="tag">digital</span>
+          <span class="tag">5 parts</span>
+          <span class="tag accent"><span class="swatch"></span>curated</span>
+        </div>
+        <div class="ckt-author"><span class="av" style="background:var(--fg)">e</span>@eencyclopedia · seed</div>
+      </div>
+    </a>
+
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star" title="Star">☆</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="80" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="80" y="120" width="22" height="20" rx="3" fill="var(--accent-soft)"/>
+          <text class="sch-lbl" x="115" y="98">R</text>
+          <text class="sch-lbl" x="115" y="138">LED</text>
+          <path class="sch-trace" d="M91 40 V65 M91 115 V120 M91 140 V140"/>
+          <path class="sch-flow" d="M91 40 V140"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>LED with current-limit resistor</h3>
+        <p>The "hello world" of EE. Shows the math: I = (Vs − Vf)/R. Three parts, fully cited.</p>
+        <div class="ckt-meta">
+          <span class="tag">LED</span>
+          <span class="tag">analog</span>
+          <span class="tag">3 parts</span>
+          <span class="tag accent"><span class="swatch"></span>curated</span>
+        </div>
+        <div class="ckt-author"><span class="av" style="background:var(--fg)">e</span>@eencyclopedia · seed</div>
+      </div>
+    </a>
+
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star" title="Star">☆</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/>
+          <path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="50" y="65" width="22" height="40" rx="3"/>
+          <rect class="sch-ic" x="50" y="115" width="22" height="20" rx="3"/>
+          <path class="sch-trace" d="M61 40 V65 M61 105 V115"/>
+          <path class="sch-trace" d="M72 90 H290"/>
+          <text class="sch-lblmu" x="80" y="84">VOUT</text>
+          <path class="sch-flow" d="M61 40 V105"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>Resistive divider · 3.3V from 5V</h3>
+        <p>Cheap, lossy, fine if the load is high-impedance. Includes the loading-error derivation.</p>
+        <div class="ckt-meta">
+          <span class="tag">divider</span>
+          <span class="tag">analog</span>
+          <span class="tag">2 parts</span>
+        </div>
+        <div class="ckt-author"><span class="av" style="background:#888">a</span>@anjali · 4d ago</div>
+      </div>
+    </a>
+  </div>
+
+  <p class="disclosure">AI-assisted output. Verify against datasheets and standards before fabrication. Library results blend full-text search with vector retrieval — exact-string queries hit FTS, intent-style queries hit embeddings, ranked together.</p>
+</main>
+</body></html>

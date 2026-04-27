@@ -1,0 +1,213 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Audio jack low-pass · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .ckt-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
+  @media (max-width: 1000px) { .ckt-layout { grid-template-columns: 1fr; } }
+  .ckt-canvas { aspect-ratio: 16 / 10; position: relative; border-radius: 12px; border: 1px solid var(--border); background: linear-gradient(180deg, var(--bg), var(--muted)); overflow: hidden; }
+  .ckt-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ckt-toolbar { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+  .ckt-toolbar .chip { background: var(--bg); border: 1px solid var(--border); padding: 4px 9px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-fg); }
+  .ckt-toolbar .right { display: flex; gap: 6px; pointer-events: auto; }
+  .hover-tip { position: absolute; transform: translate(-50%, calc(-100% - 14px)); background: var(--fg); color: var(--bg); border-radius: 8px; padding: 8px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.55; white-space: nowrap; box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--fg) 30%, transparent); pointer-events: none; }
+  .hover-tip::after { content: ''; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: var(--fg); transform: translateX(-50%) rotate(45deg); }
+  .hover-tip .k { color: color-mix(in srgb, var(--bg) 60%, transparent); }
+  .hover-tip .v { color: var(--accent); }
+  .hover-pin { position: absolute; width: 10px; height: 10px; border-radius: 999px; background: var(--accent); border: 2px solid var(--bg); transform: translate(-50%, -50%); animation: pulse 1.6s ease-out infinite; }
+  .summary { padding: 20px 22px; }
+  .summary h3 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+  .summary .body { font-size: 14px; color: var(--fg); line-height: 1.6; }
+  .summary .body p { margin: 0 0 10px; }
+  .struct { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 13px; margin-top: 14px; }
+  .struct dt { color: var(--muted-fg); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; padding-top: 2px; }
+  .struct dd { margin: 0; }
+  .struct .pill-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ckt-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .side-card { padding: 18px 20px; }
+  .side-card h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .side-card .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .side-card .row:last-child { border-bottom: 0; }
+  .side-card .row .k { color: var(--muted-fg); font-family: 'JetBrains Mono', monospace; font-size: 11.5px; }
+  .side-card .row .v { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .chat-mini { display: flex; flex-direction: column; gap: 10px; }
+  .msg { border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 13px; }
+  .msg.ai { background: var(--card); }
+  .msg.user { background: var(--muted); border-color: transparent; }
+  .msg .role { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .msg .role .dot { width: 5px; height: 5px; border-radius: 999px; }
+  .msg.ai .role .dot { background: var(--accent); }
+  .msg.user .role .dot { background: var(--muted-fg); }
+  .ask-row { display: flex; gap: 8px; align-items: stretch; margin-top: 10px; }
+  .ask-row .input { flex: 1; }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav">
+    <a href="circuit-new.html" class="btn btn-primary btn-sm">+ Upload</a>
+    <a href="library.html">Library</a><a href="calc.html">Calc</a><a href="chat.html">Chat</a>
+    <a href="favorites.html">★</a><a href="profile.html">@krish</a>
+  </nav>
+</div></header>
+
+<main class="app">
+  <div class="page-head">
+    <div>
+      <div class="crumb"><a href="library.html" style="color:var(--muted-fg)">/library</a> · audio_low_pass_v3.kicad_sch</div>
+      <h1>Audio jack low-pass · v3</h1>
+      <p class="sub">Single-pole RC, fc ≈ 1.06 kHz · 3 components · uploaded 2 days ago</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-soft"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7h7l-5.5 4.5 2 7L12 16l-6.5 4.5 2 -7L2 9h7z"/></svg>Starred</button>
+      <button class="btn btn-ghost">Fork</button>
+      <button class="btn btn-ghost">Download .kicad_sch</button>
+      <button class="btn btn-ghost">⋯</button>
+    </div>
+  </div>
+
+  <div class="ckt-layout">
+    <div>
+      <!-- canvas -->
+      <div class="ckt-canvas sch-grid" id="canvas">
+        <div class="ckt-toolbar">
+          <div style="display:flex;gap:6px;">
+            <span class="chip">read-only</span>
+            <span class="chip">3 components</span>
+          </div>
+          <div class="right">
+            <button class="btn btn-ghost btn-sm">−</button>
+            <button class="btn btn-ghost btn-sm">100%</button>
+            <button class="btn btn-ghost btn-sm">+</button>
+          </div>
+        </div>
+        <svg viewBox="0 0 600 380" preserveAspectRatio="xMidYMid meet">
+          <!-- rails -->
+          <path class="sch-trace" d="M60 60 H540"/>
+          <path class="sch-trace" d="M60 320 H540"/>
+          <text class="sch-lblmu" x="60" y="50">VIN</text>
+          <text class="sch-lblmu" x="60" y="338">GND</text>
+          <!-- R1 -->
+          <path class="sch-trace" d="M180 60 V140"/>
+          <rect class="sch-ic" x="168" y="140" width="24" height="50" rx="3"/>
+          <text class="sch-lbl" x="200" y="170">R1</text><text class="sch-lblmu" x="200" y="184">10k</text>
+          <circle class="sch-node" cx="180" cy="220" r="3.5" id="nodeOut"/>
+          <text class="sch-lblmu" x="190" y="216">VOUT</text>
+          <path class="sch-trace" d="M180 190 V220"/>
+          <!-- to OUT pin -->
+          <path class="sch-trace" d="M180 220 H460"/>
+          <text class="sch-lblmu" x="465" y="224">OUT</text>
+          <!-- C1 -->
+          <path class="sch-trace" d="M180 220 V260"/>
+          <g stroke="var(--fg)" stroke-width="1.5" fill="none">
+            <path d="M168 260 H192"/><path d="M164 270 H196"/>
+          </g>
+          <text class="sch-lbl" x="200" y="266">C1</text><text class="sch-lblmu" x="200" y="280">15n</text>
+          <path class="sch-trace" d="M180 270 V320"/>
+          <!-- animated flow -->
+          <path class="sch-flow" d="M180 60 V190"/>
+          <path class="sch-flow" d="M180 220 H460"/>
+        </svg>
+        <div class="hover-pin" style="left:30%;top:58%;"></div>
+        <div class="hover-tip" style="left:30%;top:58%;">
+          <div><span class="k">net</span>  <span class="v">VOUT</span></div>
+          <div><span class="k">−3 dB</span>  <span class="v">1.06 kHz</span></div>
+          <div><span class="k">click</span>  <span class="v">explain →</span></div>
+        </div>
+      </div>
+
+      <!-- AI summary -->
+      <div class="card" style="margin-top:18px;">
+        <div class="summary">
+          <span class="tag accent" style="margin-bottom:8px;"><span class="swatch"></span>AI summary · generated on upload</span>
+          <h3>What this circuit does</h3>
+          <div class="body">
+            <p>A first-order passive low-pass between an audio source and the ADC. R1 (10kΩ) and C1 (15 nF) set <span class="mono">f<sub>c</sub> = 1/(2πRC) ≈ 1.06 kHz</span>, attenuating any signal content above the voice band by 6 dB/octave. Output impedance at DC is R1; at high frequency it drops toward the C1 reactance, so the downstream stage should be high-impedance (≥ 100kΩ) to avoid loading.</p>
+            <p>Topology is the textbook RC LP — no opamp, no buffer. Suitable for line-level signals where loss of a few dB above 1 kHz is intentional. Not suitable as an anti-aliasing filter for a fast ADC; bump fc and switch to an active filter for that.</p>
+          </div>
+          <dl class="struct">
+            <dt>Topology</dt><dd>RC low-pass · single-pole · passive</dd>
+            <dt>Rails</dt><dd>VIN (input), GND</dd>
+            <dt>Cutoff</dt><dd class="mono">f<sub>c</sub> = 1.06 kHz · −3 dB</dd>
+            <dt>Z<sub>in</sub></dt><dd class="mono">≈ 10 kΩ at DC</dd>
+            <dt>Components</dt><dd class="pill-list"><span class="tag">R1 · 10k 1%</span><span class="tag">C1 · 15n X7R</span><span class="tag">J1 · TRS jack</span></dd>
+            <dt>Notes</dt><dd>Use C0G/X7R cap for stable cutoff. R1 noise dominates &mdash; consider 1k if SNR matters.</dd>
+          </dl>
+          <div class="ckt-actions">
+            <button class="btn btn-primary">Open in chat →</button>
+            <button class="btn btn-ghost">Suggest improvement</button>
+            <button class="btn btn-ghost">Show derivation</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- sidebar -->
+    <aside style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card side-card">
+        <h4><span style="width:6px;height:6px;border-radius:999px;background:var(--accent);"></span>Components</h4>
+        <div class="row"><span class="k">R1</span><span class="v">10kΩ · 0805 · 1%</span></div>
+        <div class="row"><span class="k">C1</span><span class="v">15nF · 0805 · X7R</span></div>
+        <div class="row"><span class="k">J1</span><span class="v">PJ-3.5mm TRS</span></div>
+      </div>
+
+      <div class="card side-card">
+        <h4>Metadata</h4>
+        <div class="row"><span class="k">visibility</span><span class="v">private</span></div>
+        <div class="row"><span class="k">owner</span><span class="v">@krish</span></div>
+        <div class="row"><span class="k">forks</span><span class="v">0</span></div>
+        <div class="row"><span class="k">stars</span><span class="v">3</span></div>
+        <div class="row"><span class="k">created</span><span class="v">2026-04-25</span></div>
+      </div>
+
+      <div class="card side-card">
+        <h4>Ask about this circuit</h4>
+        <div class="chat-mini">
+          <div class="msg ai">
+            <div class="role"><span class="dot"></span>eencyclopedia</div>
+            What's the cutoff if I want telephone bandwidth (3.4 kHz)?
+          </div>
+          <div class="msg user">
+            <div class="role"><span class="dot"></span>You</div>
+            yes, retune for 3.4k
+          </div>
+          <div class="msg ai">
+            <div class="role"><span class="dot"></span>eencyclopedia</div>
+            Keep R1 = 10k → C ≈ 4.7 nF (closest E12). New <span class="mono">f<sub>c</sub></span> ≈ 3.39 kHz. Check downstream Z<sub>in</sub>; loading error grows above ~1 kHz.
+          </div>
+        </div>
+        <div class="ask-row">
+          <input class="input" placeholder="Ask about this circuit…"/>
+          <button class="btn btn-primary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+
+      <div class="card side-card">
+        <h4>Cited sources</h4>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <a href="#" class="tag" style="justify-content:flex-start;width:max-content;max-width:100%;">Sedra/Smith · §1.6 · RC networks</a>
+          <a href="#" class="tag" style="justify-content:flex-start;width:max-content;max-width:100%;">TI app note · SLOA049 · audio filtering</a>
+          <a href="#" class="tag" style="justify-content:flex-start;width:max-content;max-width:100%;">CDE datasheet · X7R 15n 50V</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <p class="disclosure">AI-assisted output. Verify against datasheets and standards before fabrication. Hover values are static in V0; live SPICE on hover ships in V1.</p>
+</main>
+
+<script>
+  // small drift on hover pin
+  const pin = document.querySelector('.hover-pin');
+  const tip = document.querySelector('.hover-tip');
+  let t = 0;
+  function tick() { t += 0.016; const dx = Math.sin(t*0.9)*0.5, dy = Math.cos(t*1.1)*0.4;
+    const L = 30 + dx, T = 58 + dy;
+    pin.style.left = L + '%'; pin.style.top = T + '%';
+    tip.style.left = L + '%'; tip.style.top = T + '%';
+    requestAnimationFrame(tick);
+  } tick();
+</script>
+</body></html>

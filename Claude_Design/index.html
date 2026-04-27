@@ -1,0 +1,158 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>eencyclopedia · screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  body { background: var(--bg); padding: 36px 28px 80px; }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  .head { margin-bottom: 32px; }
+  .head .crumb { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg); margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .head .crumb .bar { width: 18px; height: 1px; background: var(--accent); }
+  .head h1 { font-size: 32px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; }
+  .head p { color: var(--muted-fg); margin: 0; font-size: 15px; line-height: 1.55; max-width: 720px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .legend .lg { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; }
+
+  h2.group {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--muted-fg); font-weight: 500;
+    margin: 36px 0 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h2.group .count { color: var(--fg); font-size: 11px; font-weight: 600; }
+
+  .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .card-link {
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+    overflow: hidden; transition: border-color 160ms ease, transform 160ms ease;
+    display: flex; flex-direction: column;
+  }
+  .card-link:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); transform: translateY(-1px); }
+  .card-link .frame { aspect-ratio: 16 / 10; position: relative; background: linear-gradient(180deg, var(--bg), var(--muted)); border-bottom: 1px solid var(--border); overflow: hidden; }
+  .card-link .frame iframe { position: absolute; inset: 0; width: 250%; height: 250%; border: 0; transform: scale(0.4); transform-origin: 0 0; pointer-events: none; }
+  .card-link .frame .scrim { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--card) 70%, transparent)); pointer-events: none; }
+  .card-link .meta { padding: 14px 16px; }
+  .card-link .meta h3 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; letter-spacing: -0.005em; }
+  .card-link .meta p { margin: 0; font-size: 12.5px; color: var(--muted-fg); line-height: 1.5; }
+  .card-link .meta .row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .card-link .meta .path { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted-fg); }
+  .card-link .meta .badge { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; padding: 2px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .card-link .meta .badge.public { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  .card-link .meta .badge.auth { background: var(--muted); color: var(--fg); }
+  .card-link .meta .badge.admin { background: #0d1117; color: #f85149; }
+
+  .footer-note { margin-top: 60px; padding: 18px 22px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted-fg); font-size: 13px; line-height: 1.6; }
+  .footer-note strong { color: var(--fg); }
+  .footer-note .mono { color: var(--fg); }
+</style></head><body>
+<div class="wrap">
+  <header class="head">
+    <div class="crumb"><span class="bar"></span>eencyclopedia · v0 · screen index</div>
+    <h1>All screens, side-by-side.</h1>
+    <p>Twelve HTML files for the full v0 product, plus a drop-in <span class="mono">app/page.tsx</span>. Click any tile to open it. Every page shares <span class="mono">app.css</span> — change a token, the whole product moves with it.</p>
+    <div class="legend">
+      <span class="lg">12 screens</span>
+      <span class="lg">1 marketing route</span>
+      <span class="lg">2 auth routes</span>
+      <span class="lg">7 app routes</span>
+      <span class="lg">1 admin route</span>
+      <span class="lg">monochrome + amber accent</span>
+    </div>
+  </header>
+
+  <h2 class="group">Marketing <span class="count">1</span></h2>
+  <div class="grid">
+    <a class="card-link" href="marketing.html" target="_blank">
+      <div class="frame"><iframe src="marketing.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta">
+        <h3>Landing page</h3>
+        <p>Hero with animated schematic · why · how · features · coming next · CTA.</p>
+        <div class="row"><span class="path">/  →  marketing.html</span><span class="badge public">PUBLIC</span></div>
+      </div>
+    </a>
+  </div>
+
+  <h2 class="group">Auth <span class="count">2</span></h2>
+  <div class="grid">
+    <a class="card-link" href="login.html" target="_blank">
+      <div class="frame"><iframe src="login.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Sign in</h3><p>Magic link · Google. Schematic-art header.</p>
+        <div class="row"><span class="path">/login  →  login.html</span><span class="badge public">PUBLIC</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="onboarding.html" target="_blank">
+      <div class="frame"><iframe src="onboarding.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Onboarding</h3><p>Username, explanation mode, units, ToS.</p>
+        <div class="row"><span class="path">/onboarding</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+  </div>
+
+  <h2 class="group">Core app <span class="count">7</span></h2>
+  <div class="grid">
+    <a class="card-link" href="library.html" target="_blank">
+      <div class="frame"><iframe src="library.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Library</h3><p>Hybrid search · filters · circuits-as-cards with mini SVGs.</p>
+        <div class="row"><span class="path">/library</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="circuit.html" target="_blank">
+      <div class="frame"><iframe src="circuit.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Circuit detail</h3><p>SVG canvas · AI summary · ask sidebar · cited sources.</p>
+        <div class="row"><span class="path">/circuit/[id]</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="circuit-new.html" target="_blank">
+      <div class="frame"><iframe src="circuit-new.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Upload circuit</h3><p>Drop zone · live pipeline · privacy controls.</p>
+        <div class="row"><span class="path">/circuit/new</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="chat.html" target="_blank">
+      <div class="frame"><iframe src="chat.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Chat</h3><p>Threads · stream · KaTeX math · citations · context panel.</p>
+        <div class="row"><span class="path">/chat</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="calc.html" target="_blank">
+      <div class="frame"><iframe src="calc.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Calculators</h3><p>12 canonical EE calcs · derivation · "explain" via AI.</p>
+        <div class="row"><span class="path">/calc</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="favorites.html" target="_blank">
+      <div class="frame"><iframe src="favorites.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Starred</h3><p>Pinned circuits, never shared, ⌘ K from anywhere.</p>
+        <div class="row"><span class="path">/favorites</span><span class="badge auth">AUTHED</span></div>
+      </div>
+    </a>
+    <a class="card-link" href="profile.html" target="_blank">
+      <div class="frame"><iframe src="profile.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Profile</h3><p>Public handle · circuits · activity feed · stats.</p>
+        <div class="row"><span class="path">/profile/[user]</span><span class="badge public">PUBLIC*</span></div>
+      </div>
+    </a>
+  </div>
+
+  <h2 class="group">Admin <span class="count">1</span></h2>
+  <div class="grid">
+    <a class="card-link" href="admin-seed.html" target="_blank">
+      <div class="frame"><iframe src="admin-seed.html" loading="lazy"></iframe><div class="scrim"></div></div>
+      <div class="meta"><h3>Seed corpus</h3><p>Run curated .kicad_sch through the pipeline · live log.</p>
+        <div class="row"><span class="path">/admin/seed</span><span class="badge admin">ADMIN</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="footer-note">
+    <strong>Files in this project:</strong>
+    <span class="mono">app.css</span> (shared tokens + chrome) · <span class="mono">app-page.tsx</span> (drop-in for <span class="mono">eencyclopedia/app/page.tsx</span>) · <span class="mono">marketing.html</span> · <span class="mono">login.html</span> · <span class="mono">onboarding.html</span> · <span class="mono">library.html</span> · <span class="mono">circuit.html</span> · <span class="mono">circuit-new.html</span> · <span class="mono">chat.html</span> · <span class="mono">calc.html</span> · <span class="mono">favorites.html</span> · <span class="mono">profile.html</span> · <span class="mono">admin-seed.html</span>.
+    <br/><br/>
+    Each HTML is a real, navigable page — links between them work. To port any screen to Next.js, copy the body markup into the matching <span class="mono">app/.../page.tsx</span> and replace inline class strings with Tailwind, or keep <span class="mono">app.css</span> and use the existing classes verbatim.
+  </div>
+</div>
+</body></html>

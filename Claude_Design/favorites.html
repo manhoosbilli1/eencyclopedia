@@ -1,0 +1,126 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Starred · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .ckt { border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; transition: border-color 160ms ease; }
+  .ckt:hover { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); }
+  .ckt-thumb { aspect-ratio: 16 / 9; position: relative; background: linear-gradient(180deg, var(--bg), var(--muted)); border-bottom: 1px solid var(--border); }
+  .ckt-thumb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ckt-thumb .star { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 999px; background: var(--bg); border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); color: var(--accent); display: grid; place-items: center; cursor: pointer; }
+  .ckt-body { padding: 14px 16px 16px; }
+  .ckt-body h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .ckt-body p { margin: 0 0 8px; font-size: 13px; color: var(--muted-fg); line-height: 1.5; }
+  .ckt-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .empty-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted-fg); font-size: 13.5px; }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav">
+    <a href="circuit-new.html" class="btn btn-primary btn-sm">+ Upload</a>
+    <a href="library.html">Library</a><a href="calc.html">Calc</a><a href="chat.html">Chat</a>
+    <a href="favorites.html" class="active">★</a>
+    <a href="profile.html">@krish</a>
+  </nav>
+</div></header>
+
+<main class="app">
+  <div class="page-head">
+    <div>
+      <div class="crumb">/favorites</div>
+      <h1>Starred</h1>
+      <p class="sub">Circuits you've kept handy. Synced across devices, never shared.</p>
+    </div>
+    <div class="mono" style="font-size:11.5px;color:var(--muted-fg);">7 STARRED · 3 YOURS · 4 PUBLIC</div>
+  </div>
+
+  <div class="grid">
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star">★</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="40" y="60" width="22" height="40" rx="3"/>
+          <path class="sch-trace" d="M51 100 V125"/>
+          <g stroke="currentColor" stroke-width="1.5" fill="none" style="color:var(--fg)"><path d="M40 125 H62"/><path d="M36 132 H66"/></g>
+          <path class="sch-trace" d="M51 132 V140"/>
+          <path class="sch-trace" d="M62 80 H160"/>
+          <polygon class="sch-ic" points="160,60 160,100 200,80"/>
+          <path class="sch-trace" d="M200 80 H290"/>
+          <path class="sch-flow" d="M62 80 H290"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>Audio jack low-pass · v3</h3>
+        <p>Single-pole RC at fc ≈ 1.06 kHz</p>
+        <div class="ckt-meta"><span class="tag">RC</span><span class="tag">analog</span><span class="tag">@krish</span></div>
+      </div>
+    </a>
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star">★</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="60" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="160" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="240" y="65" width="22" height="50" rx="3"/>
+          <path class="sch-trace" d="M71 40 V65 M71 115 V140 M171 40 V65 M171 115 V140 M251 40 V65 M251 115 V140"/>
+          <path class="sch-trace" d="M82 90 H160 M182 90 H240"/>
+          <path class="sch-flow" d="M82 90 H260"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>Logic-level translator</h3>
+        <p>3-channel bidirectional 3V3 ↔ 5V on I²C</p>
+        <div class="ckt-meta"><span class="tag">level-shift</span><span class="tag">digital</span><span class="tag">@krish</span></div>
+      </div>
+    </a>
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star">★</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="80" y="60" width="160" height="60" rx="4"/>
+          <text class="sch-lbl" x="92" y="84">U1 · MCU</text>
+          <text class="sch-lblmu" x="92" y="98">RP2040</text>
+          <path class="sch-trace" d="M100 40 V60 M220 40 V60"/>
+          <path class="sch-trace" d="M100 120 V140 M220 120 V140"/>
+          <path class="sch-flow" d="M100 40 V140"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>RP2040 minimum boot</h3>
+        <p>Decoupling, USB, boot select. Curated.</p>
+        <div class="ckt-meta"><span class="tag">mcu</span><span class="tag">digital</span><span class="tag accent"><span class="swatch"></span>curated</span></div>
+      </div>
+    </a>
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <button class="star">★</button>
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="80" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="80" y="120" width="22" height="20" rx="3" fill="var(--accent-soft)"/>
+          <text class="sch-lbl" x="115" y="98">R</text>
+          <text class="sch-lbl" x="115" y="138">LED</text>
+          <path class="sch-trace" d="M91 40 V65 M91 115 V120"/>
+          <path class="sch-flow" d="M91 40 V140"/>
+        </svg>
+      </div>
+      <div class="ckt-body">
+        <h3>LED with current-limit resistor</h3>
+        <p>The "hello world" of EE — fully derived.</p>
+        <div class="ckt-meta"><span class="tag">LED</span><span class="tag accent"><span class="swatch"></span>curated</span></div>
+      </div>
+    </a>
+  </div>
+
+  <div class="empty-row" style="margin-top:24px;">
+    Tip — star anything you reference often. Press <span class="kbd">⌘ K</span> to jump straight to your starred items from any page.
+  </div>
+</main>
+</body></html>

@@ -1,0 +1,173 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>@krish · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .profile-head { display: grid; grid-template-columns: 96px 1fr auto; gap: 22px; align-items: center; padding: 22px 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); margin-bottom: 22px; }
+  @media (max-width: 700px) { .profile-head { grid-template-columns: 64px 1fr; } .profile-head .actions { grid-column: 1 / -1; } }
+  .av-lg { width: 96px; height: 96px; border-radius: 999px; background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--fg))); display: grid; place-items: center; color: var(--bg); font-family: 'JetBrains Mono', monospace; font-size: 36px; font-weight: 700; }
+  .profile-head h1 { margin: 0 0 2px; font-size: 22px; font-weight: 600; }
+  .profile-head .handle { font-family: 'JetBrains Mono', monospace; color: var(--muted-fg); font-size: 13px; }
+  .profile-head .bio { margin-top: 8px; font-size: 14px; color: var(--fg); max-width: 540px; line-height: 1.5; }
+  .profile-stats { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted-fg); }
+  .profile-stats .num { color: var(--fg); font-weight: 600; margin-right: 4px; }
+
+  .tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+  .tabs .t { padding: 10px 0; font-size: 13.5px; color: var(--muted-fg); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs .t.active { color: var(--fg); border-color: var(--fg); }
+  .tabs .t .count { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted-fg); margin-left: 5px; }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .ckt { border: 1px solid var(--border); border-radius: 12px; background: var(--card); overflow: hidden; }
+  .ckt-thumb { aspect-ratio: 16 / 9; position: relative; background: linear-gradient(180deg, var(--bg), var(--muted)); border-bottom: 1px solid var(--border); }
+  .ckt-thumb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ckt-body { padding: 12px 14px; }
+  .ckt-body h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+  .ckt-body p { margin: 0; font-size: 12.5px; color: var(--muted-fg); }
+  .ckt-meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+
+  .activity { display: flex; flex-direction: column; gap: 6px; }
+  .ev { display: grid; grid-template-columns: 100px 1fr auto; gap: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); align-items: center; }
+  .ev .when { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); }
+  .ev .what { font-size: 13.5px; }
+  .ev .what a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--border); }
+  .ev .meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); }
+  .ev .ico { width: 22px; height: 22px; border-radius: 999px; display: inline-grid; place-items: center; margin-right: 8px; vertical-align: middle; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: var(--bg); }
+  .ev .ico.up { background: var(--accent); }
+  .ev .ico.fk { background: var(--fg); }
+  .ev .ico.ch { background: #888; }
+  .ev .ico.st { background: var(--accent); }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav">
+    <a href="circuit-new.html" class="btn btn-primary btn-sm">+ Upload</a>
+    <a href="library.html">Library</a><a href="calc.html">Calc</a><a href="chat.html">Chat</a>
+    <a href="favorites.html">★</a>
+    <a href="profile.html" class="active">@krish</a>
+  </nav>
+</div></header>
+
+<main class="app">
+  <div class="profile-head">
+    <div class="av-lg">k</div>
+    <div>
+      <h1>Krish</h1>
+      <div class="handle">@krish · joined Apr 2026 · Bangalore</div>
+      <p class="bio">Building eencyclopedia — a memory layer for circuits. Mostly analog, occasional MCU, allergic to BGAs. Defaults: SI units, intuitive + math.</p>
+      <div class="profile-stats">
+        <span><span class="num">14</span>uploaded</span>
+        <span><span class="num">7</span>starred</span>
+        <span><span class="num">3</span>forked from</span>
+        <span><span class="num">82</span>chat threads</span>
+      </div>
+    </div>
+    <div class="actions" style="display:flex;gap:6px;">
+      <button class="btn btn-soft btn-sm">Edit profile</button>
+      <button class="btn btn-ghost btn-sm">⚙</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <span class="t active">Circuits <span class="count">14</span></span>
+    <span class="t">Activity <span class="count">42</span></span>
+    <span class="t">Starred <span class="count">7</span></span>
+    <span class="t">Stats</span>
+  </div>
+
+  <div class="grid">
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="100" y="60" width="22" height="40" rx="3"/>
+          <path class="sch-trace" d="M111 40 V60 M111 100 V120"/>
+          <g stroke="currentColor" stroke-width="1.5" fill="none" style="color:var(--fg)"><path d="M100 120 H122"/><path d="M96 128 H126"/></g>
+          <path class="sch-trace" d="M111 128 V140"/>
+          <path class="sch-flow" d="M111 40 V128"/>
+        </svg>
+      </div>
+      <div class="ckt-body"><h3>Audio jack low-pass · v3</h3><p>fc ≈ 1.06 kHz · 2d ago</p>
+        <div class="ckt-meta"><span class="tag">RC</span><span class="tag">private</span></div>
+      </div>
+    </a>
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="120" y="70" width="80" height="40" rx="3"/>
+          <text class="sch-lbl" x="130" y="92">U1 · LDO</text>
+          <text class="sch-lblmu" x="130" y="104">3v3</text>
+          <path class="sch-trace" d="M40 40 V70 M280 40 V70 M40 110 V140 M280 110 V140"/>
+        </svg>
+      </div>
+      <div class="ckt-body"><h3>5V → 3V3 LDO regulator</h3><p>AP2112K reference · 1w ago</p>
+        <div class="ckt-meta"><span class="tag">power</span><span class="tag accent"><span class="swatch"></span>public</span></div>
+      </div>
+    </a>
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="60" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="160" y="65" width="22" height="50" rx="3"/>
+          <rect class="sch-ic" x="240" y="65" width="22" height="50" rx="3"/>
+          <path class="sch-trace" d="M71 40 V65 M171 40 V65 M251 40 V65"/>
+          <path class="sch-trace" d="M82 90 H160 M182 90 H240"/>
+        </svg>
+      </div>
+      <div class="ckt-body"><h3>Logic-level translator</h3><p>3ch I²C 3V3↔5V · 3w ago</p>
+        <div class="ckt-meta"><span class="tag">digital</span><span class="tag">private</span></div>
+      </div>
+    </a>
+    <a class="ckt" href="circuit.html">
+      <div class="ckt-thumb sch-grid">
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <polygon class="sch-ic" points="120,60 120,120 180,90"/>
+          <text class="sch-lbl" x="128" y="84">+</text><text class="sch-lbl" x="128" y="110">-</text>
+          <rect class="sch-ic" x="60" y="70" width="22" height="40" rx="3"/>
+          <rect class="sch-ic" x="200" y="70" width="22" height="40" rx="3"/>
+        </svg>
+      </div>
+      <div class="ckt-body"><h3>Non-inverting amp · gain ≈ 5</h3><p>OPA340 · 1mo ago</p>
+        <div class="ckt-meta"><span class="tag">opamp</span><span class="tag">private</span></div>
+      </div>
+    </a>
+  </div>
+
+  <h2 style="font-size:14px;font-weight:600;margin:32px 0 12px;letter-spacing:-0.005em;">Recent activity</h2>
+  <div class="activity">
+    <div class="ev">
+      <span class="when">2d ago</span>
+      <span class="what"><span class="ico up">↑</span>Uploaded <a href="circuit.html">audio_low_pass_v3.kicad_sch</a></span>
+      <span class="meta">3 components · private</span>
+    </div>
+    <div class="ev">
+      <span class="when">2d ago</span>
+      <span class="what"><span class="ico ch">⌘</span>Chatted in <a href="chat.html">RC cutoff for voice band</a></span>
+      <span class="meta">8 turns · 3 citations</span>
+    </div>
+    <div class="ev">
+      <span class="when">3d ago</span>
+      <span class="what"><span class="ico st">★</span>Starred <a href="circuit.html">RP2040 minimum boot</a></span>
+      <span class="meta">curated · @eencyclopedia</span>
+    </div>
+    <div class="ev">
+      <span class="when">1w ago</span>
+      <span class="what"><span class="ico fk">⑂</span>Forked <a href="circuit.html">5V → 3V3 LDO</a> from @sahil-kp</span>
+      <span class="meta">5 parts · power</span>
+    </div>
+    <div class="ev">
+      <span class="when">2w ago</span>
+      <span class="what"><span class="ico ch">⌘</span>Chatted in <a href="chat.html">SMPS layout — return path</a></span>
+      <span class="meta">9 turns · 6 citations</span>
+    </div>
+  </div>
+
+  <p class="disclosure">AI-assisted output. Verify against datasheets and standards before fabrication. Profiles are public for users with at least one public circuit; everything else stays private.</p>
+</main>
+</body></html>

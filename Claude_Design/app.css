@@ -1,0 +1,215 @@
+/* eencyclopedia — shared design tokens & chrome
+   Mirrors app/globals.css HSL tokens + adds the marketing accent.
+*/
+:root {
+  --bg: hsl(0 0% 100%);
+  --fg: hsl(222 47% 11%);
+  --muted: hsl(210 40% 96%);
+  --muted-fg: hsl(215 16% 47%);
+  --border: hsl(214 32% 91%);
+  --card: hsl(0 0% 100%);
+  --primary: hsl(222 47% 11%);
+  --primary-fg: hsl(210 40% 98%);
+  --accent: oklch(0.72 0.13 65);
+  --accent-soft: oklch(0.95 0.04 75);
+  --grid: hsl(214 32% 93%);
+  --radius: 0.5rem;
+  --destructive: hsl(0 72% 51%);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: 'rlig' 1, 'calt' 1;
+  -webkit-font-smoothing: antialiased; line-height: 1.5;
+}
+a { color: inherit; text-decoration: none; }
+.mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+input, button, textarea, select { font: inherit; color: inherit; }
+
+/* HEADER */
+.header {
+  position: sticky; top: 0; z-index: 30;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+}
+.header-inner {
+  max-width: 1200px; margin: 0 auto; padding: 0 24px;
+  height: 56px; display: flex; align-items: center; justify-content: space-between;
+}
+.brand { display: flex; align-items: center; gap: 20px; }
+.brand-mark { font-family: 'JetBrains Mono', monospace; font-size: 14px; letter-spacing: -0.01em; }
+.pill {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--border); background: var(--muted);
+  border-radius: 999px; padding: 2px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted-fg);
+}
+.pill .dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent); margin-right: 6px;
+  animation: pulse 2s ease-out infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); }
+  70%  { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+.nav { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+.nav a { color: var(--muted-fg); transition: color 120ms ease; }
+.nav a:hover, .nav a.active { color: var(--fg); }
+.nav .sep { width: 1px; height: 16px; background: var(--border); }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 36px; padding: 0 14px; border-radius: var(--radius);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.btn-primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+.btn-primary:hover { background: color-mix(in srgb, var(--primary) 90%, white); }
+.btn-ghost { color: var(--fg); border-color: var(--border); background: var(--bg); }
+.btn-ghost:hover { background: var(--muted); }
+.btn-soft { background: var(--muted); color: var(--fg); border-color: transparent; }
+.btn-soft:hover { background: color-mix(in srgb, var(--muted) 60%, var(--border)); }
+.btn-sm { height: 30px; padding: 0 10px; font-size: 12px; }
+.btn-lg { height: 44px; padding: 0 18px; font-size: 14px; }
+.btn .arrow { transition: transform 160ms ease; }
+.btn:hover .arrow { transform: translateX(2px); }
+
+/* LAYOUT */
+main.app {
+  max-width: 1200px; margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+.page-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 16px; flex-wrap: wrap;
+  padding-bottom: 22px; margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.page-head h1 {
+  font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
+  margin: 0; line-height: 1.1;
+}
+.page-head .crumb {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted-fg); margin-bottom: 6px;
+}
+.page-head .sub { color: var(--muted-fg); font-size: 14px; margin-top: 6px; max-width: 60ch; }
+
+/* CARDS */
+.card {
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--card);
+}
+.card-pad { padding: 22px; }
+
+/* INPUTS */
+.input {
+  height: 36px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg); color: var(--fg);
+  font-size: 13px; width: 100%;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.input:focus {
+  outline: none; border-color: var(--fg);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.input.with-icon { padding-left: 36px; }
+.input-wrap { position: relative; }
+.input-wrap .icon {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--muted-fg); pointer-events: none;
+}
+.label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--fg); margin-bottom: 6px;
+}
+.help { font-size: 12px; color: var(--muted-fg); margin-top: 6px; }
+
+/* META PILLS */
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted-fg);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.tag.accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: var(--accent-soft);
+}
+.tag .swatch { width: 6px; height: 6px; background: var(--accent); border-radius: 999px; }
+
+/* SCHEMATIC SVG STYLES (shared) */
+.sch-grid::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(circle at 50% 50%, black 50%, transparent 95%);
+  opacity: 0.6;
+}
+.sch-trace { fill: none; stroke: color-mix(in srgb, var(--fg) 35%, transparent); stroke-width: 1.5; stroke-linecap: round; }
+.sch-flow { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 6; animation: dashflow 2.4s linear infinite; }
+@keyframes dashflow { to { stroke-dashoffset: -100; } }
+.sch-ic { fill: var(--bg); stroke: var(--fg); stroke-width: 1.5; }
+.sch-lbl { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--fg); }
+.sch-lblmu { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--muted-fg); }
+.sch-node { fill: var(--bg); stroke: var(--fg); stroke-width: 1.5; }
+.sch-node-accent { fill: var(--accent); stroke: var(--accent); }
+
+/* CODE / KBD */
+kbd {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  border: 1px solid var(--border); border-radius: 5px;
+  background: var(--muted);
+  padding: 1px 6px; color: var(--muted-fg);
+}
+.code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  padding: 2px 6px; border-radius: 4px;
+  color: var(--fg);
+}
+
+/* EMPTY STATE */
+.empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px; padding: 48px 24px;
+  text-align: center; color: var(--muted-fg);
+  font-size: 14px;
+}
+.empty h3 { color: var(--fg); margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+
+/* TOAST / DISCLOSURE */
+.disclosure {
+  border-top: 1px solid var(--border);
+  margin-top: 80px; padding-top: 16px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  color: var(--muted-fg); letter-spacing: 0.04em;
+  max-width: 64ch; line-height: 1.6;
+}
+
+/* SCROLLBARS — quiet */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }

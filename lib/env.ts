@@ -21,15 +21,30 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
+// Helpers — `dotenv` returns "" for `KEY=` (empty value). `.optional()` only
+// catches *missing* keys, not empty strings, so `z.string().url().optional()`
+// blows up on `NEXT_PUBLIC_SENTRY_DSN=`. Same with placeholder strings like
+// `<DB-PASSWORD>`. Coerce both to undefined before validating.
+// ---------------------------------------------------------------------------
+const isPlaceholder = (v: unknown): boolean =>
+  typeof v === 'string' && (v.trim() === '' || /<[A-Z0-9_-]+>/i.test(v));
+
+const optionalUrl = () =>
+  z.preprocess((v) => (isPlaceholder(v) ? undefined : v), z.string().url().optional());
+
+const optionalString = () =>
+  z.preprocess((v) => (isPlaceholder(v) ? undefined : v), z.string().min(1).optional());
+
+// ---------------------------------------------------------------------------
 // Public env — exposed to the browser. Must be prefixed NEXT_PUBLIC_.
 // ---------------------------------------------------------------------------
 const PublicEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(20),
-  NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
-  NEXT_PUBLIC_POSTHOG_HOST: z.string().url().optional(),
-  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_POSTHOG_KEY: optionalString(),
+  NEXT_PUBLIC_POSTHOG_HOST: optionalUrl(),
+  NEXT_PUBLIC_SENTRY_DSN: optionalUrl(),
   NEXT_PUBLIC_FEATURE_BILLING: z.coerce.boolean().default(false),
   NEXT_PUBLIC_FEATURE_SPICE_WASM: z.coerce.boolean().default(false),
   NEXT_PUBLIC_FEATURE_DISTRIBUTOR_PRICING: z.coerce.boolean().default(false),
@@ -45,17 +60,32 @@ const ServerEnvSchema = z.object({
 
   // Supabase (server-only privileged surface)
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(20),
-  SUPABASE_PROJECT_REF: z.string().min(8).optional(),
-  SUPABASE_DB_URL: z.string().url().optional(),
+  SUPABASE_PROJECT_REF: optionalString(),
+  SUPABASE_DB_URL: optionalUrl(),
 
-  // Anthropic
-  ANTHROPIC_API_KEY: z.string().min(20),
+  // AI provider switch — 'anthropic' or 'gemini'. The selected provider's
+  // key MUST be present, validated via .superRefine() at the end of the
+  // schema below.
+  AI_PROVIDER: z.enum(['anthropic', 'gemini']).default('anthropic'),
+
+  // Anthropic (optional unless AI_PROVIDER=anthropic)
+  ANTHROPIC_API_KEY: optionalString(),
   ANTHROPIC_MODEL_SONNET: z.string().default('claude-sonnet-4-6'),
   ANTHROPIC_MODEL_HAIKU: z.string().default('claude-haiku-4-5-20251001'),
   ANTHROPIC_MODEL_OPUS: z.string().default('claude-opus-4-6'),
 
+  // Google Gemini (optional unless AI_PROVIDER=gemini)
+  // Slug naming aligns with our `category → model class` map in the router:
+  //   FLASH = main 'sonnet-class' — chat / summary / schematic_explain
+  //   PRO   = 'opus-class' — deep_analysis / opus_required
+  //   FAST  = 'haiku-class' — router classification, calc-tool extraction
+  GEMINI_API_KEY: optionalString(),
+  GEMINI_MODEL_FLASH: z.string().default('gemini-2.5-flash'),
+  GEMINI_MODEL_PRO: z.string().default('gemini-2.5-pro'),
+  GEMINI_MODEL_FAST: z.string().default('gemini-2.0-flash-lite'),
+
   // OpenAI fallback (optional V0)
-  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: optionalString(),
 
   // Voyage embeddings
   VOYAGE_API_KEY: z.string().min(20),
@@ -63,29 +93,29 @@ const ServerEnvSchema = z.object({
   VOYAGE_EMBED_DIM: z.coerce.number().int().positive().default(1024),
 
   // Stripe (V1 — gated by feature flag)
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  STRIPE_PRICE_PRO: z.string().optional(),
-  STRIPE_PRICE_PRO_PLUS: z.string().optional(),
+  STRIPE_SECRET_KEY: optionalString(),
+  STRIPE_WEBHOOK_SECRET: optionalString(),
+  STRIPE_PRICE_PRO: optionalString(),
+  STRIPE_PRICE_PRO_PLUS: optionalString(),
 
   // Upstash rate limiting
-  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
-  UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+  UPSTASH_REDIS_REST_URL: optionalUrl(),
+  UPSTASH_REDIS_REST_TOKEN: optionalString(),
 
   // Observability (optional)
-  SENTRY_AUTH_TOKEN: z.string().optional(),
-  LANGFUSE_PUBLIC_KEY: z.string().optional(),
-  LANGFUSE_SECRET_KEY: z.string().optional(),
-  LANGFUSE_HOST: z.string().url().optional(),
+  SENTRY_AUTH_TOKEN: optionalString(),
+  LANGFUSE_PUBLIC_KEY: optionalString(),
+  LANGFUSE_SECRET_KEY: optionalString(),
+  LANGFUSE_HOST: optionalUrl(),
 
   // Email
-  RESEND_API_KEY: z.string().optional(),
+  RESEND_API_KEY: optionalString(),
 
   // Distributors (V1)
-  MOUSER_API_KEY: z.string().optional(),
-  DIGIKEY_CLIENT_ID: z.string().optional(),
-  DIGIKEY_CLIENT_SECRET: z.string().optional(),
-  OCTOPART_API_KEY: z.string().optional(),
+  MOUSER_API_KEY: optionalString(),
+  DIGIKEY_CLIENT_ID: optionalString(),
+  DIGIKEY_CLIENT_SECRET: optionalString(),
+  OCTOPART_API_KEY: optionalString(),
   LCSC_USER_AGENT: z
     .string()
     .default('eencyclopedia/0.1 (+https://eencyclopedia.com; contact@eencyclopedia.com)'),
@@ -105,6 +135,24 @@ const ServerEnvSchema = z.object({
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
     ),
+}).superRefine((env, ctx) => {
+  // Cross-field: the selected AI provider's API key must be present.
+  // We do this in superRefine because base zod can't reference one field
+  // from another's validator.
+  if (env.AI_PROVIDER === 'anthropic' && !env.ANTHROPIC_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ANTHROPIC_API_KEY'],
+      message: 'AI_PROVIDER=anthropic requires ANTHROPIC_API_KEY to be set.',
+    });
+  }
+  if (env.AI_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['GEMINI_API_KEY'],
+      message: 'AI_PROVIDER=gemini requires GEMINI_API_KEY to be set.',
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -136,7 +184,7 @@ const rawPublic = {
   NEXT_PUBLIC_FEATURE_SPICE_WASM: process.env.NEXT_PUBLIC_FEATURE_SPICE_WASM,
   NEXT_PUBLIC_FEATURE_DISTRIBUTOR_PRICING: process.env.NEXT_PUBLIC_FEATURE_DISTRIBUTOR_PRICING,
   NEXT_PUBLIC_FEATURE_FORUM: process.env.NEXT_PUBLIC_FEATURE_FORUM,
-} as NodeJS.ProcessEnv;
+} as unknown as NodeJS.ProcessEnv;
 
 export const publicEnv = parse(PublicEnvSchema, rawPublic, 'public');
 export type PublicEnv = typeof publicEnv;

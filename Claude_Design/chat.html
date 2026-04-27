@@ -1,0 +1,252 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Chat · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  body { height: 100vh; overflow: hidden; }
+  .chat-shell { display: grid; grid-template-columns: 260px 1fr 320px; height: calc(100vh - 56px); }
+  @media (max-width: 1100px) { .chat-shell { grid-template-columns: 1fr; } .chat-side, .chat-context { display: none; } }
+  .chat-side, .chat-context { border-right: 1px solid var(--border); overflow-y: auto; padding: 16px 14px; background: var(--bg); }
+  .chat-context { border-right: 0; border-left: 1px solid var(--border); }
+  .chat-side h4, .chat-context h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.12em; font-family: 'JetBrains Mono', monospace; }
+  .thread-item { display: block; padding: 9px 10px; border-radius: 8px; font-size: 13px; color: var(--fg); cursor: pointer; }
+  .thread-item .when { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted-fg); margin-top: 2px; display: block; }
+  .thread-item:hover { background: var(--muted); }
+  .thread-item.active { background: var(--muted); border-left: 2px solid var(--accent); padding-left: 8px; }
+  .new-chat { width: 100%; margin-bottom: 14px; }
+
+  .chat-main { display: flex; flex-direction: column; min-height: 0; }
+  .chat-stream { flex: 1; overflow-y: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px; }
+  .chat-stream .turn { max-width: 760px; width: 100%; margin: 0 auto; }
+  .turn .role-line { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg); }
+  .turn .role-line .av { width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; font-size: 9px; font-weight: 700; color: var(--bg); }
+  .turn.user .av { background: var(--muted-fg); }
+  .turn.ai .av { background: var(--accent); }
+  .turn .body { font-size: 14.5px; line-height: 1.65; }
+  .turn .body p { margin: 0 0 10px; }
+  .turn .body p:last-child { margin-bottom: 0; }
+  .turn .body code { background: var(--muted); padding: 1px 5px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.88em; }
+  .math {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; margin: 12px 0; font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    overflow-x: auto;
+  }
+  .math .step { color: var(--muted-fg); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .citations { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .cite {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px;
+    font-size: 11.5px; color: var(--muted-fg); cursor: pointer; background: var(--bg);
+  }
+  .cite:hover { color: var(--fg); border-color: color-mix(in srgb, var(--fg) 30%, var(--border)); }
+  .cite .num { width: 14px; height: 14px; border-radius: 999px; background: var(--muted); display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; color: var(--fg); }
+  .turn-actions { display: flex; gap: 6px; margin-top: 10px; opacity: 0; transition: opacity 120ms ease; }
+  .turn:hover .turn-actions { opacity: 1; }
+  .ta-btn { font-size: 11.5px; color: var(--muted-fg); padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; cursor: pointer; }
+  .ta-btn:hover { color: var(--fg); }
+
+  .ckt-inline {
+    margin: 14px 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    aspect-ratio: 16 / 7; position: relative; background: var(--bg);
+  }
+  .ckt-inline .label { position: absolute; top: 10px; left: 12px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-fg); }
+  .ckt-inline svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .composer { border-top: 1px solid var(--border); padding: 14px 32px 22px; background: var(--bg); }
+  .composer-inner { max-width: 760px; margin: 0 auto; }
+  .composer .input-wrap { background: var(--card); border-radius: 14px; }
+  .composer textarea {
+    width: 100%; padding: 14px 100px 14px 16px; min-height: 56px; max-height: 200px; resize: none;
+    border: 1px solid var(--border); border-radius: 14px;
+    background: var(--card); color: var(--fg); font: inherit; font-size: 14.5px; line-height: 1.5;
+    outline: none;
+  }
+  .composer textarea:focus { border-color: color-mix(in srgb, var(--fg) 25%, var(--border)); }
+  .composer .actions { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 4px; }
+  .icon-btn { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; border: 1px solid transparent; background: transparent; color: var(--muted-fg); cursor: pointer; }
+  .icon-btn:hover { background: var(--muted); color: var(--fg); }
+  .icon-btn.send { background: var(--fg); color: var(--bg); }
+  .icon-btn.send:hover { background: var(--fg); opacity: 0.92; }
+  .composer .meta-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 0 4px; font-size: 11.5px; color: var(--muted-fg); }
+  .composer .scope { display: flex; gap: 6px; align-items: center; }
+  .composer .scope-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; cursor: pointer; }
+  .composer .scope-pill .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); }
+
+  /* context panel */
+  .ctx-card { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); margin-bottom: 12px; }
+  .ctx-card .name { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; }
+  .ctx-card .meta { font-size: 11.5px; color: var(--muted-fg); margin-top: 2px; }
+  .ctx-card .ckt-mini { aspect-ratio: 16/9; background: var(--bg); border-radius: 6px; margin-top: 8px; position: relative; overflow: hidden; }
+  .ctx-card .ckt-mini svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ctx-meta-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; }
+  .ctx-meta-row .k { color: var(--muted-fg); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav">
+    <a href="circuit-new.html" class="btn btn-primary btn-sm">+ Upload</a>
+    <a href="library.html">Library</a><a href="calc.html">Calc</a>
+    <a href="chat.html" class="active">Chat</a>
+    <a href="favorites.html">★</a><a href="profile.html">@krish</a>
+  </nav>
+</div></header>
+
+<div class="chat-shell">
+  <!-- thread list -->
+  <aside class="chat-side">
+    <button class="btn btn-primary new-chat">+ New chat</button>
+    <h4>Today</h4>
+    <a class="thread-item active">RC cutoff for voice band <span class="when">2:14 pm · 8 turns</span></a>
+    <a class="thread-item">Choosing a 3V3 LDO under 200 mA <span class="when">11:02 am · 4 turns</span></a>
+    <h4 style="margin-top:18px;">This week</h4>
+    <a class="thread-item">Why does my opamp oscillate? <span class="when">Mon · 12 turns</span></a>
+    <a class="thread-item">I²C pullup sizing for 1 MHz <span class="when">Mon · 5 turns</span></a>
+    <a class="thread-item">SMPS layout — return path <span class="when">Sun · 9 turns</span></a>
+    <h4 style="margin-top:18px;">Earlier</h4>
+    <a class="thread-item">SPICE: bias point of CE amp <span class="when">Apr 18 · 6 turns</span></a>
+    <a class="thread-item">Crystal vs ceramic resonator <span class="when">Apr 14 · 3 turns</span></a>
+  </aside>
+
+  <!-- main chat -->
+  <main class="chat-main">
+    <div class="chat-stream">
+
+      <div class="turn user">
+        <div class="role-line"><span class="av">k</span>You · 2:14 pm</div>
+        <div class="body">
+          <p>I'm low-passing my electret mic before the ADC at 1 kHz. With R = 10k and C = 15n, what's the actual cutoff and is the loading on the next stage going to be a problem?</p>
+        </div>
+      </div>
+
+      <div class="turn ai">
+        <div class="role-line"><span class="av">e</span>eencyclopedia · 2:14 pm</div>
+        <div class="body">
+          <p>The −3 dB cutoff of a single-pole RC low-pass is <code>fc = 1/(2πRC)</code>. With R = 10kΩ and C = 15nF:</p>
+          <div class="math">
+            <div class="step">Step 1 · cutoff frequency</div>
+            fc = 1 / (2π · 10×10³ · 15×10⁻⁹)<br/>
+            &nbsp;&nbsp; = 1 / (2π · 1.5×10⁻⁴)<br/>
+            &nbsp;&nbsp; = 1061.03 Hz  ≈ <span style="color:var(--accent);font-weight:600;">1.06 kHz</span>
+          </div>
+          <p>You'll get a touch above the textbook 1.0 kHz target — fine for voice. <strong>Loading</strong> matters because the output impedance is dominated by R: at DC <code>Zout = 10 kΩ</code>, dropping toward the cap reactance above fc.</p>
+
+          <div class="ckt-inline sch-grid">
+            <div class="label">attached · audio_low_pass_v3.kicad_sch</div>
+            <svg viewBox="0 0 600 220">
+              <path class="sch-trace" d="M40 50 H560"/><path class="sch-trace" d="M40 180 H560"/>
+              <text class="sch-lblmu" x="40" y="40">VIN</text><text class="sch-lblmu" x="40" y="200">GND</text>
+              <path class="sch-trace" d="M180 50 V90"/>
+              <rect class="sch-ic" x="168" y="90" width="24" height="40" rx="3"/>
+              <text class="sch-lbl" x="200" y="116">R1 · 10k</text>
+              <path class="sch-trace" d="M180 130 V150"/>
+              <circle class="sch-node" cx="180" cy="150" r="3.5"/>
+              <text class="sch-lblmu" x="190" y="146">VOUT</text>
+              <path class="sch-trace" d="M180 150 H440"/>
+              <text class="sch-lblmu" x="445" y="154">→ ADC</text>
+              <path class="sch-trace" d="M180 150 V162"/>
+              <g stroke="var(--fg)" stroke-width="1.5" fill="none"><path d="M168 162 H192"/><path d="M164 170 H196"/></g>
+              <text class="sch-lbl" x="200" y="170">C1 · 15n</text>
+              <path class="sch-trace" d="M180 170 V180"/>
+              <path class="sch-flow" d="M40 50 H180 V162"/>
+              <path class="sch-flow" d="M180 150 H440"/>
+            </svg>
+          </div>
+
+          <p>Rule of thumb: keep the next stage's input impedance ≥ 10× your filter R. If your ADC is direct (no buffer), check its <em>Rs,max</em> in the datasheet — most SAR ADCs want Rs &lt; 1–3kΩ for full-rate sampling. <strong>If you're sampling at &gt; ~50 kSPS</strong>, add a unity-gain buffer between filter and ADC.</p>
+
+          <div class="citations">
+            <span class="cite"><span class="num">1</span>Sedra/Smith · §1.6 RC networks</span>
+            <span class="cite"><span class="num">2</span>TI SBAA055 · ADC source impedance</span>
+            <span class="cite"><span class="num">3</span>Your circuit · audio_low_pass_v3</span>
+          </div>
+          <div class="turn-actions">
+            <button class="ta-btn">Copy</button>
+            <button class="ta-btn">Open in calc</button>
+            <button class="ta-btn">Show derivation</button>
+            <button class="ta-btn">Regenerate</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="turn user">
+        <div class="role-line"><span class="av">k</span>You · 2:16 pm</div>
+        <div class="body">
+          <p>Sample rate is 16 kHz on an SAMD21. Buffer or no buffer?</p>
+        </div>
+      </div>
+
+      <div class="turn ai">
+        <div class="role-line"><span class="av">e</span>eencyclopedia · 2:16 pm</div>
+        <div class="body">
+          <p>SAMD21 SAR sampling at 16 kHz — you're well below the impedance pain point. Datasheet calls out a max source impedance of <strong>3.5 kΩ</strong> for full accuracy at the highest sampling rates; at 16 kHz with the default sample time you have margin. Skip the buffer.</p>
+          <p>One catch: 10kΩ + 15nF settles in a few RC ≈ 150µs before reaching ½ LSB. At 16 kHz your sample window is 62.5 µs, so the ADC's S/H cap will see step changes per sample. Increase <code>SAMPLEN</code> in the SAMD21 ADC config to give it 8–16 ADC clocks of acquisition, or drop R to 1k and bump C to 150n.</p>
+          <div class="citations">
+            <span class="cite"><span class="num">1</span>SAMD21 datasheet · §32.6.2.7</span>
+            <span class="cite"><span class="num">2</span>Atmel AT04076 · ADC config</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="input-wrap" style="position:relative;">
+          <textarea placeholder="Ask anything — &quot;what's a Schmitt trigger&quot;, &quot;why does my LDO oscillate&quot;, &quot;simulate this RC filter&quot;…"></textarea>
+          <div class="actions">
+            <button class="icon-btn" title="Attach circuit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12.5l-7.78 7.78a5.5 5.5 0 0 1-7.78-7.78l8.49-8.49a3.5 3.5 0 0 1 4.95 4.95L10.4 17.43a1.5 1.5 0 0 1-2.12-2.12l7.07-7.07"/></svg></button>
+            <button class="icon-btn send" title="Send"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg></button>
+          </div>
+        </div>
+        <div class="meta-row">
+          <div class="scope">
+            <span>Context:</span>
+            <span class="scope-pill"><span class="dot"></span>audio_low_pass_v3</span>
+            <span class="scope-pill" style="opacity:.6;cursor:pointer;">+ add</span>
+          </div>
+          <span class="mono">⌘ + ↵ to send · Shift + ↵ for newline</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- context -->
+  <aside class="chat-context">
+    <h4>Context</h4>
+    <div class="ctx-card">
+      <div class="name">audio_low_pass_v3.kicad_sch</div>
+      <div class="meta">Attached · 3 components · private</div>
+      <div class="ckt-mini sch-grid">
+        <svg viewBox="0 0 320 180">
+          <path class="sch-trace" d="M30 40 H290"/><path class="sch-trace" d="M30 140 H290"/>
+          <rect class="sch-ic" x="100" y="60" width="22" height="40" rx="3"/>
+          <path class="sch-trace" d="M111 40 V60 M111 100 V120"/>
+          <g stroke="currentColor" stroke-width="1.5" fill="none" style="color:var(--fg)"><path d="M100 120 H122"/><path d="M96 128 H126"/></g>
+          <path class="sch-trace" d="M111 128 V140"/>
+          <path class="sch-trace" d="M122 80 H260"/>
+          <path class="sch-flow" d="M111 40 V120 M122 80 H260"/>
+        </svg>
+      </div>
+    </div>
+
+    <h4 style="margin-top:18px;">Citations in this thread</h4>
+    <div class="ctx-card" style="padding:10px 12px;">
+      <div class="ctx-meta-row"><span class="k">[1]</span><span>Sedra/Smith §1.6</span></div>
+      <div class="ctx-meta-row"><span class="k">[2]</span><span>TI SBAA055</span></div>
+      <div class="ctx-meta-row"><span class="k">[3]</span><span>Your circuit</span></div>
+      <div class="ctx-meta-row"><span class="k">[4]</span><span>SAMD21 §32.6.2.7</span></div>
+      <div class="ctx-meta-row"><span class="k">[5]</span><span>AT04076 app note</span></div>
+    </div>
+
+    <h4 style="margin-top:18px;">Try next</h4>
+    <div class="ctx-card" style="padding:10px 12px;font-size:12.5px;color:var(--muted-fg);line-height:1.55;">
+      <p style="margin:0 0 6px;cursor:pointer;color:var(--fg);">→ Open SAMD21 ADC settling calc</p>
+      <p style="margin:0 0 6px;cursor:pointer;color:var(--fg);">→ Compare with active 2nd-order LP</p>
+      <p style="margin:0;cursor:pointer;color:var(--fg);">→ Show this filter's Bode plot</p>
+    </div>
+  </aside>
+</div>
+</body></html>

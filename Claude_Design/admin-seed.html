@@ -1,0 +1,195 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Admin · seed corpus · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .admin-layout { display: grid; grid-template-columns: 1fr 320px; gap: 22px; align-items: start; }
+  @media (max-width: 1000px) { .admin-layout { grid-template-columns: 1fr; } }
+  .seed-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .seed-table th, .seed-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+  .seed-table th { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-fg); font-weight: 500; background: var(--bg); position: sticky; top: 0; }
+  .seed-table td.mono, .seed-table td .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted-fg); }
+  .seed-table tr:hover td { background: var(--card); }
+  .status { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600; }
+  .status .dot { width: 6px; height: 6px; border-radius: 999px; }
+  .status.ok { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+  .status.ok .dot { background: var(--accent); }
+  .status.run { background: var(--muted); color: var(--fg); }
+  .status.run .dot { background: var(--fg); animation: pulse 1.6s ease-out infinite; }
+  .status.queue { background: var(--bg); border: 1px solid var(--border); color: var(--muted-fg); }
+  .status.queue .dot { background: var(--muted-fg); }
+  .status.err { background: color-mix(in srgb, #c0392b 16%, transparent); color: #c0392b; }
+  .status.err .dot { background: #c0392b; }
+
+  .console { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; padding: 14px 16px; background: #0d1117; color: #e6edf3; border-radius: 10px; max-height: 320px; overflow-y: auto; }
+  .console .ts { color: #7d8590; }
+  .console .ok { color: #3fb950; }
+  .console .warn { color: #d29922; }
+  .console .err { color: #f85149; }
+
+  .stat { padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+  .stat .label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-fg); }
+  .stat .val { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600; margin-top: 2px; }
+  .stat .delta { font-size: 11.5px; color: var(--accent); margin-top: 2px; }
+
+  .danger {
+    margin-top: 18px; border: 1px solid color-mix(in srgb, #c0392b 30%, var(--border));
+    background: color-mix(in srgb, #c0392b 5%, var(--bg));
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .danger .body { flex: 1; font-size: 13px; color: var(--fg); }
+  .danger strong { color: #c0392b; }
+
+  .pipeline-mini { display: flex; gap: 4px; margin-top: 12px; }
+  .pipeline-mini .step { flex: 1; height: 26px; background: var(--muted); border-radius: 5px; position: relative; display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.08em; }
+  .pipeline-mini .step.done { background: var(--accent); color: var(--bg); }
+  .pipeline-mini .step.live { background: var(--fg); color: var(--bg); }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill" style="background:#0d1117;color:#e6edf3;border-color:#0d1117;"><span class="dot" style="background:#f85149;"></span>admin</span></div>
+  <nav class="nav">
+    <a href="library.html">Library</a><a href="chat.html">Chat</a>
+    <a href="#" class="active">/admin</a>
+    <a href="#">Sign out</a>
+  </nav>
+</div></header>
+
+<main class="app">
+  <div class="page-head">
+    <div>
+      <div class="crumb">/admin / seed</div>
+      <h1>Seed the public corpus</h1>
+      <p class="sub">Internal tool. Load curated .kicad_sch files from <span class="mono">/seed</span>, run them through the pipeline, mark as @eencyclopedia-owned. Triggered by repo PRs to <span class="mono">main</span>.</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost">Pause</button>
+      <button class="btn btn-primary">+ Run seed batch</button>
+    </div>
+  </div>
+
+  <div class="admin-layout">
+    <div class="card" style="padding: 0;overflow:hidden;">
+      <div style="padding:14px 18px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);">
+        <div>
+          <h3 style="margin:0;font-size:14px;font-weight:600;">Batch · 2026-04-27 · 14:18 UTC</h3>
+          <div class="mono" style="font-size:11px;color:var(--muted-fg);margin-top:2px;">12 of 47 done · ETA 4m 12s · concurrency 4</div>
+        </div>
+        <div class="status run"><span class="dot"></span>RUNNING</div>
+      </div>
+      <table class="seed-table">
+        <thead><tr><th>File</th><th>Components</th><th>Pipeline</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">led_resistor.kicad_sch</span></td>
+            <td class="mono">3</td>
+            <td>
+              <div class="pipeline-mini" style="margin:0;">
+                <span class="step done">parse</span><span class="step done">render</span><span class="step done">summary</span><span class="step done">embed</span>
+              </div>
+            </td>
+            <td><span class="status ok"><span class="dot"></span>DONE</span></td>
+            <td><a href="circuit.html" class="mono" style="font-size:11px;color:var(--muted-fg);">→ view</a></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">resistive_divider.kicad_sch</span></td>
+            <td class="mono">2</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step done">parse</span><span class="step done">render</span><span class="step done">summary</span><span class="step done">embed</span></div></td>
+            <td><span class="status ok"><span class="dot"></span>DONE</span></td>
+            <td><a href="circuit.html" class="mono" style="font-size:11px;color:var(--muted-fg);">→ view</a></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">rc_low_pass.kicad_sch</span></td>
+            <td class="mono">3</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step done">parse</span><span class="step done">render</span><span class="step done">summary</span><span class="step done">embed</span></div></td>
+            <td><span class="status ok"><span class="dot"></span>DONE</span></td>
+            <td><a href="circuit.html" class="mono" style="font-size:11px;color:var(--muted-fg);">→ view</a></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">opamp_noninverting.kicad_sch</span></td>
+            <td class="mono">4</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step done">parse</span><span class="step done">render</span><span class="step live">summary</span><span class="step">embed</span></div></td>
+            <td><span class="status run"><span class="dot"></span>SUMMARY…</span></td>
+            <td><a class="mono" style="font-size:11px;color:var(--muted-fg);">→ stream</a></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">i2c_pullups.kicad_sch</span></td>
+            <td class="mono">4</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step done">parse</span><span class="step live">render</span><span class="step">summary</span><span class="step">embed</span></div></td>
+            <td><span class="status run"><span class="dot"></span>RENDER…</span></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">crystal_load_caps.kicad_sch</span></td>
+            <td class="mono">5</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step done">parse</span><span class="step done">render</span><span class="step">summary</span><span class="step">embed</span></div></td>
+            <td><span class="status queue"><span class="dot"></span>QUEUED</span></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">level_shifter_3ch.kicad_sch</span></td>
+            <td class="mono">5</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step">parse</span><span class="step">render</span><span class="step">summary</span><span class="step">embed</span></div></td>
+            <td><span class="status queue"><span class="dot"></span>QUEUED</span></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><span class="mono" style="color:var(--fg);">ldo_3v3_ap2112.kicad_sch</span></td>
+            <td class="mono">5</td>
+            <td><div class="pipeline-mini" style="margin:0;"><span class="step done">parse</span><span class="step done">render</span><span class="step">summary</span><span class="step">embed</span></div></td>
+            <td><span class="status err"><span class="dot"></span>ERR · GPT timeout</span></td>
+            <td><a class="mono" style="font-size:11px;color:#c0392b;cursor:pointer;">↻ retry</a></td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="padding:10px 16px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted-fg);display:flex;justify-content:space-between;">
+        <span>Showing 8 of 47 · 1 error · 1 retried</span>
+        <span>Costs so far: $0.42 · est. total $1.94</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="stat">
+        <div class="label">Public corpus size</div>
+        <div class="val">2,184</div>
+        <div class="delta">+12 this batch</div>
+      </div>
+      <div class="stat">
+        <div class="label">Pinecone vectors</div>
+        <div class="val">2,184</div>
+        <div class="delta">in sync</div>
+      </div>
+      <div class="stat">
+        <div class="label">Avg pipeline · curated</div>
+        <div class="val">7.4s</div>
+        <div class="delta" style="color:var(--muted-fg);">parse 0.1 · render 0.4 · ai 5.8 · embed 1.1</div>
+      </div>
+
+      <div class="card" style="padding: 14px 16px;">
+        <h4 style="margin:0 0 10px;font-size:12px;font-weight:600;">Live log</h4>
+        <div class="console">
+          <div><span class="ts">14:21:42</span> <span class="ok">[OK]</span> embed → led_resistor (3 vectors)</div>
+          <div><span class="ts">14:21:42</span> <span class="ok">[OK]</span> embed → resistive_divider (2 vectors)</div>
+          <div><span class="ts">14:21:43</span> <span class="ok">[OK]</span> embed → rc_low_pass (3 vectors)</div>
+          <div><span class="ts">14:21:48</span> <span>[..]</span> ai_summary → opamp_noninverting</div>
+          <div><span class="ts">14:21:50</span> <span class="warn">[WARN]</span> ldo_3v3_ap2112 — gpt-4o-mini 504, retrying (1/3)</div>
+          <div><span class="ts">14:21:52</span> <span class="err">[ERR]</span> ldo_3v3_ap2112 — gpt-4o-mini 504 (3/3) · marked for retry</div>
+          <div><span class="ts">14:21:55</span> <span>[..]</span> render → i2c_pullups</div>
+          <div><span class="ts">14:21:57</span> <span class="ok">[OK]</span> parse → crystal_load_caps</div>
+        </div>
+      </div>
+
+      <div class="danger">
+        <span style="font-size:18px;">⚠</span>
+        <div class="body"><strong>Re-seed all</strong> wipes the public corpus and re-runs every file. Use only after schema migrations. Costs ~$3.50 + 4 minutes.</div>
+        <button class="btn btn-ghost btn-sm" style="border-color:#c0392b;color:#c0392b;">Re-seed all</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="disclosure">Internal tool — not exposed to end users. Seed pipeline is idempotent: re-running on an unchanged file is a no-op. AI summaries are regenerated only on prompt-template version bumps.</p>
+</main>
+</body></html>

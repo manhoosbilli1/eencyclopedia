@@ -1,0 +1,175 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Calc · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  .calc-shell { display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .calc-shell { grid-template-columns: 1fr; } }
+  .calc-list { display: flex; flex-direction: column; gap: 2px; }
+  .calc-list h4 { margin: 14px 0 6px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg); padding: 0 10px; }
+  .calc-list a { padding: 8px 10px; border-radius: 7px; font-size: 13px; color: var(--fg); display: flex; align-items: center; gap: 8px; }
+  .calc-list a:hover { background: var(--muted); }
+  .calc-list a.active { background: var(--muted); border-left: 2px solid var(--accent); padding-left: 8px; }
+  .calc-list a .badge { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; color: var(--muted-fg); margin-left: auto; }
+  .calc-card { padding: 22px 24px 20px; }
+  .calc-card .title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 12px; }
+  .calc-card h2 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  .calc-card .desc { color: var(--muted-fg); font-size: 13.5px; margin: 0 0 18px; }
+  .calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 700px) { .calc-grid { grid-template-columns: 1fr; } }
+  .input-block { display: flex; flex-direction: column; gap: 14px; }
+  .ifield .row { display: flex; align-items: center; gap: 8px; }
+  .ifield .row .input { flex: 1; }
+  .ifield select.unit { height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg); cursor: pointer; }
+  .result {
+    border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px;
+    background: var(--card);
+  }
+  .result h5 { margin: 0 0 8px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted-fg); font-weight: 500; }
+  .result .big { font-family: 'JetBrains Mono', monospace; font-size: 38px; font-weight: 600; letter-spacing: -0.01em; color: var(--fg); margin: 4px 0; line-height: 1.1; }
+  .result .big .unit { font-size: 16px; color: var(--muted-fg); margin-left: 6px; font-weight: 400; }
+  .result .secondary { font-size: 13px; color: var(--muted-fg); }
+  .deriv { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .deriv-step { display: grid; grid-template-columns: 14px 1fr; gap: 10px; padding: 5px 0; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+  .deriv-step .n { color: var(--muted-fg); }
+  .deriv-step.h { color: var(--accent); }
+  .e-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 10px; }
+  .e-pill { padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted-fg); cursor: pointer; }
+  .e-pill.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .ai-explain {
+    margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border);
+    border-radius: 10px; background: var(--bg);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .ai-explain .ico { width: 22px; height: 22px; border-radius: 999px; background: var(--accent); color: var(--bg); display: grid; place-items: center; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; flex: 0 0 auto; }
+  .ai-explain p { margin: 0; font-size: 13px; color: var(--fg); line-height: 1.55; }
+  .ai-explain p strong { color: var(--accent); }
+  .calc-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .calc-tabs .t { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; font-size: 12.5px; background: var(--bg); color: var(--muted-fg); cursor: pointer; }
+  .calc-tabs .t.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="index.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav">
+    <a href="circuit-new.html" class="btn btn-primary btn-sm">+ Upload</a>
+    <a href="library.html">Library</a>
+    <a href="calc.html" class="active">Calc</a>
+    <a href="chat.html">Chat</a>
+    <a href="favorites.html">★</a><a href="profile.html">@krish</a>
+  </nav>
+</div></header>
+
+<main class="app">
+  <div class="page-head">
+    <div>
+      <div class="crumb">/calc / led-resistor</div>
+      <h1>Calculators</h1>
+      <p class="sub">Twelve canonical EE calculations, every one with a derivation and an "explain" button.</p>
+    </div>
+  </div>
+
+  <div class="calc-shell">
+    <aside class="calc-list">
+      <h4>Analog</h4>
+      <a class="active">LED current-limit resistor <span class="badge">★</span></a>
+      <a>Resistor divider <span class="badge"></span></a>
+      <a>RC low-pass / high-pass <span class="badge"></span></a>
+      <a>Opamp gain (inv / non-inv) <span class="badge"></span></a>
+      <h4>Power</h4>
+      <a>Decoupling cap sizing</a>
+      <a>LDO dropout &amp; thermals</a>
+      <a>Buck inductor sizing</a>
+      <h4>Digital</h4>
+      <a>I²C pullup sizing</a>
+      <a>Crystal load capacitance</a>
+      <a>Logic level translator</a>
+      <h4>Layout</h4>
+      <a>Trace width (IPC-2152)</a>
+      <a>Microstrip impedance</a>
+    </aside>
+
+    <div class="card calc-card">
+      <div class="title-row">
+        <div>
+          <h2>LED current-limit resistor</h2>
+          <p class="desc" style="margin-bottom:0">Pick R so a single LED runs at your target forward current. Math, units, and the closest E-series value.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm">⤴ Share calc</button>
+      </div>
+
+      <div class="calc-tabs">
+        <span class="t active">Single LED</span>
+        <span class="t">Series chain</span>
+        <span class="t">Parallel (don't)</span>
+      </div>
+
+      <div class="calc-grid">
+        <div class="input-block">
+          <div class="ifield">
+            <label class="label">Supply voltage <span class="mono" style="color:var(--muted-fg);">V<sub>s</sub></span></label>
+            <div class="row">
+              <input class="input" value="5.0" inputmode="decimal"/>
+              <select class="unit"><option>V</option><option>mV</option></select>
+            </div>
+            <div class="help">USB rail. Tolerance ±5%.</div>
+          </div>
+          <div class="ifield">
+            <label class="label">LED forward voltage <span class="mono" style="color:var(--muted-fg);">V<sub>f</sub></span></label>
+            <div class="row">
+              <input class="input" value="2.1" inputmode="decimal"/>
+              <select class="unit"><option>V</option></select>
+            </div>
+            <div class="help">From datasheet at your target I<sub>f</sub>. Red ≈ 2.0–2.2, white ≈ 3.0–3.4.</div>
+          </div>
+          <div class="ifield">
+            <label class="label">Target forward current <span class="mono" style="color:var(--muted-fg);">I<sub>f</sub></span></label>
+            <div class="row">
+              <input class="input" value="12" inputmode="decimal"/>
+              <select class="unit"><option>mA</option><option>µA</option><option>A</option></select>
+            </div>
+            <div class="help">10–20 mA is the safe range for indicator LEDs.</div>
+          </div>
+          <div class="ifield">
+            <label class="label">Tolerance series</label>
+            <div class="e-row">
+              <span class="e-pill">E12</span>
+              <span class="e-pill active">E24</span>
+              <span class="e-pill">E96</span>
+              <span class="e-pill">Exact</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="result">
+            <h5>Required resistance</h5>
+            <div class="big">241.67<span class="unit">Ω</span></div>
+            <div class="secondary">Closest E24 value: <strong style="color:var(--fg);font-family:'JetBrains Mono',monospace;">240Ω</strong> · resulting <span class="mono">I<sub>f</sub> ≈ 12.08 mA</span> · power dissipated in R: <span class="mono">35 mW</span>. Use a 1/8 W resistor.</div>
+
+            <div class="deriv">
+              <div class="deriv-step h"><span class="n">1.</span><span>Apply KVL around the loop</span></div>
+              <div class="deriv-step"><span class="n">→</span><span>V<sub>s</sub> = V<sub>f</sub> + I·R</span></div>
+              <div class="deriv-step h"><span class="n">2.</span><span>Solve for R</span></div>
+              <div class="deriv-step"><span class="n">→</span><span>R = (V<sub>s</sub> − V<sub>f</sub>) / I</span></div>
+              <div class="deriv-step"><span class="n">→</span><span>R = (5.0 − 2.1) / 0.012</span></div>
+              <div class="deriv-step"><span class="n">→</span><span>R = 2.9 / 0.012 = 241.67 Ω</span></div>
+              <div class="deriv-step h"><span class="n">3.</span><span>Round up to nearest E24 → 240 Ω</span></div>
+              <div class="deriv-step"><span class="n">→</span><span>P = I²·R = (0.012)²·240 = 0.0346 W</span></div>
+            </div>
+          </div>
+
+          <div class="ai-explain">
+            <span class="ico">e</span>
+            <p><strong>Why round up?</strong> A higher R means slightly less current — safer for the LED's lifetime. The 240Ω choice gives 12.08 mA vs your 12 mA target — within 1%. <span style="color:var(--muted-fg);">Want me to recompute for a 3.3V rail or a chain of 3 LEDs?</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="disclosure">AI-assisted output. Verify against datasheets and standards before fabrication. Calculator math runs locally — no network call until you press "Explain".</p>
+</main>
+</body></html>

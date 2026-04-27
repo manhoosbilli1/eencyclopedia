@@ -1,0 +1,69 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Sign in · eencyclopedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+  .auth-wrap { flex: 1; display: grid; place-items: center; padding: 32px 24px; }
+  .auth-card { width: 100%; max-width: 400px; }
+  .auth-art { position: relative; height: 92px; margin-bottom: 24px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: linear-gradient(180deg, var(--bg), var(--muted)); }
+  .auth-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .auth-art .cap { position: absolute; left: 14px; top: 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-fg); }
+  .auth-card h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+  .auth-card .lede { color: var(--muted-fg); font-size: 14px; margin: 0 0 22px; }
+  .form-row { margin-bottom: 14px; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--muted-fg); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .btn-block { width: 100%; }
+  .legal { font-size: 12px; color: var(--muted-fg); text-align: center; margin-top: 22px; line-height: 1.55; }
+  .legal a { color: var(--fg); text-decoration: underline; text-decoration-color: var(--border); }
+</style></head><body>
+
+<header class="header"><div class="header-inner">
+  <div class="brand"><a href="marketing.html" class="brand-mark">eencyclopedia</a><span class="pill"><span class="dot"></span>closed beta</span></div>
+  <nav class="nav"><a href="marketing.html">← Back</a></nav>
+</div></header>
+
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-art sch-grid">
+      <span class="cap">authenticate.kicad_sch</span>
+      <svg viewBox="0 0 400 92" preserveAspectRatio="xMidYMid meet">
+        <path class="sch-trace" d="M20 46 H80"/>
+        <rect class="sch-ic" x="80" y="32" width="40" height="28" rx="3"/>
+        <text class="sch-lbl" x="88" y="50">AUTH</text>
+        <path class="sch-trace" d="M120 46 H180"/>
+        <circle class="sch-node" cx="180" cy="46" r="3.5"/>
+        <path class="sch-trace" d="M180 46 H240 V30 H300"/>
+        <path class="sch-trace" d="M180 46 H240 V62 H300"/>
+        <path class="sch-flow" d="M20 46 H180"/>
+      </svg>
+    </div>
+    <h1>Sign in</h1>
+    <p class="lede">We'll email you a magic link. No passwords.</p>
+
+    <form>
+      <div class="form-row">
+        <label class="label" for="email">Email</label>
+        <div class="input-wrap">
+          <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>
+          <input class="input with-icon" id="email" type="email" placeholder="you@domain.com" autocomplete="email"/>
+        </div>
+        <div class="help">We'll never spam. One-tap unsubscribe on every email.</div>
+      </div>
+      <button class="btn btn-primary btn-lg btn-block" type="button">Send magic link</button>
+    </form>
+
+    <div class="divider">or</div>
+
+    <button class="btn btn-ghost btn-block" type="button">
+      <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.2c0-.7-.06-1.4-.18-2.05H12v3.9h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.35z"/><path fill="#34A853" d="M12 22c2.7 0 5-1 6.6-2.5l-3.2-2.5c-.9.6-2 1-3.4 1a5.9 5.9 0 0 1-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.4 13.9a6 6 0 0 1 0-3.8V7.5H3.1a10 10 0 0 0 0 9z"/><path fill="#EA4335" d="M12 6c1.5 0 2.8.5 3.9 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6A6 6 0 0 1 12 6z"/></svg>
+      Continue with Google
+    </button>
+
+    <p class="legal">By continuing you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>. AI output is informational; verify before fabrication.</p>
+  </div>
+</div>
+</body></html>
