@@ -34,6 +34,11 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '5mb',
     },
+    // pdf-parse loads test PDF files during its own require() initialisation.
+    // Bundling it through webpack in a serverless/edge context makes that
+    // path resolution fail with ENOENT. Externalising it tells Next.js to
+    // leave it as a native Node.js require at runtime, which works correctly.
+    serverComponentsExternalPackages: ['pdf-parse'],
   },
   images: {
     remotePatterns: supabaseHost

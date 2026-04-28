@@ -1,5 +1,70 @@
 import { createHash } from 'node:crypto';
 
+/**
+ * Text chunking for KB ingest (textbooks, datasheets, etc.)
+ *
+ * Strategy: fixed-size chunks with overlap for context continuity.
+ * Default: 300 tokens per chunk, 50-token overlap.
+ *
+ * Rough token count: ~4 chars per token (conservative for English prose).
+ */
+export interface TextChunkArgs {
+  text: string;
+  chunkSizeTokens?: number;
+  overlapTokens?: number;
+}
+
+export interface TextChunk {
+  content: string;
+  startIndex: number;
+  endIndex: number;
+  chunkIndex: number;
+}
+
+export function chunkText(args: TextChunkArgs): TextChunk[] {
+  const { text, chunkSizeTokens = 300, overlapTokens = 50 } = args;
+
+  // Conservative: assume 4 chars per token
+  const chunkSizeChars = chunkSizeTokens * 4;
+  const overlapChars = overlapTokens * 4;
+  const stride = Math.max(1, chunkSizeChars - overlapChars);
+
+  const chunks: TextChunk[] = [];
+  let position = 0;
+  let chunkIndex = 0;
+
+  while (position < text.length) {
+    const chunkStart = Math.max(0, position - overlapChars);
+    const chunkEnd = Math.min(text.length, chunkStart + chunkSizeChars);
+
+    // Avoid mid-sentence split: find next newline or period within last 100 chars
+    let actualEnd = chunkEnd;
+    if (chunkEnd < text.length) {
+      const searchStart = Math.max(chunkEnd - 100, chunkStart);
+      const searchRegion = text.substring(searchStart, chunkEnd);
+      const breakMatch = searchRegion.match(/[.!?\n]\s+/);
+      if (breakMatch) {
+        actualEnd = searchStart + breakMatch.index! + breakMatch[0].length;
+      }
+    }
+
+    const content = text.substring(chunkStart, actualEnd).trim();
+    if (content.length > 50) { // Skip tiny chunks
+      chunks.push({
+        content,
+        startIndex: chunkStart,
+        endIndex: actualEnd,
+        chunkIndex,
+      });
+      chunkIndex++;
+    }
+
+    position += stride;
+  }
+
+  return chunks;
+}
+
 export interface CircuitSummaryKbSyncArgs {
   circuitId: string;
   ownerId: string;
@@ -11,7 +76,7 @@ export interface CircuitSummaryKbSyncArgs {
 }
 
 export interface KbChunkPayload {
-  source_type: 'user_circuit_summary';
+  source_type: 'user_circuit_summary' | 'textbook' | 'datasheet';
   source_id: string;
   content: string;
   content_sha256: string;
@@ -134,4 +199,51 @@ function arrayOfObjects(value: unknown): Array<Record<string, unknown>> {
           typeof entry === 'object' && entry !== null,
       )
     : [];
+}
+
+/**
+ * Build KB chunks from a textbook or document.
+ * Each chunk gets embedded and stored separately.
+ */
+export function buildTextbookKbChunks(args: {
+  text: string;
+  filename: string;
+  title: string;
+}): KbChunkPayload[] {
+  const chunks = chunkText({ text: args.text });
+
+  return chunks.map((chunk) => ({
+    source_type: 'textbook' as const,
+    source_id: `textbook:${args.filename}:${chunk.chunkIndex}`,
+    content: chunk.content,
+    content_sha256: sha256(chunk.content),
+    metadata: {
+      filename: args.filename,
+      title: args.title,
+      chunk_index: chunk.chunkIndex,
+      char_range: `${chunk.startIndex}-${chunk.endIndex}`,
+    },
+  }));
+}
+
+/**
+ * Insert textbook chunks into kb_chunks table.
+ * Returns the count of chunks inserted.
+ */
+export async function ingestTextbookChunks(chunks: KbChunkPayload[]): Promise<number> {
+  if (chunks.length === 0) return 0;
+
+  const { getSupabaseAdmin } = await import('@/lib/supabase/admin');
+  const admin = getSupabaseAdmin();
+
+  const { error, count } = await admin
+    .from('kb_chunks')
+    .insert(chunks as never)
+    .select('id', { count: 'exact' });
+
+  if (error) {
+    throw new Error(`Failed to insert KB chunks: ${error.message}`);
+  }
+
+  return count ?? 0;
 }
