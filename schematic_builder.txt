@@ -1,0 +1,857 @@
+Build it as a **graph system with a rendering layer**, not as a drawing app. The correct hierarchy is:
+
+**KiCad text → canonical schematic graph → layout/viewport model → interactive render → simulation netlist → edit operations**
+
+Anything else creates avoidable complexity, slow redraws, large storage, and hard-to-fix bugs.
+
+# 1) Core design principle
+
+Your source is a `.kicad_sch` file. That means the system already contains a structured design intent:
+
+* components are symbols, not pixels
+* wires are graph edges, not arbitrary strokes
+* junctions are graph merges
+* labels define electrical identity
+* sheets define hierarchy
+* pins define connectivity
+
+So the viewer must preserve **electrical meaning first**, and only then create visuals.
+
+The key rule is:
+
+**Never infer net connectivity from the rendered image.**
+Always infer rendering from the parsed electrical graph.
+
+That single decision makes the system small, fast, and reliable.
+
+---
+
+# 2) The best overall architecture
+
+Use four layers.
+
+## Layer A: Parser
+
+Parse KiCad schematic text into an internal AST.
+
+This layer should preserve:
+
+* UUIDs
+* symbol library links
+* reference/value fields
+* pin locations and orientations
+* wire segments
+* labels
+* junctions
+* bus entries
+* hierarchical sheets
+* sheet pins / ports
+* graphical primitives
+
+Do not flatten everything into drawing commands immediately. Keep structure.
+
+## Layer B: Canonical model
+
+Convert the AST into a canonical graph model.
+
+This is the most important part.
+
+Represent the schematic as:
+
+* **Symbol instances**
+* **Pins**
+* **Wire segments**
+* **Net nodes**
+* **Junction nodes**
+* **Text/label nodes**
+* **Sheet nodes**
+* **Ports**
+* **Hierarchy edges**
+
+The canonical model should be stable, compact, and independent of the renderer.
+
+## Layer C: View model
+
+Convert the canonical graph into viewport-ready geometry.
+
+This model contains:
+
+* screen-space coordinates
+* symbol transforms
+* wire polylines
+* label positions
+* bounding boxes
+* hit regions
+* draw order
+
+This layer should be recomputable cheaply.
+
+## Layer D: Interaction and simulation
+
+Interaction and simulation must operate on the canonical graph, not on pixels.
+
+* hover a wire → find its net
+* click a pin → find its connected net
+* simulate a component → map to electrical model nodes
+* edit a symbol → generate a graph patch, not redraw everything
+
+---
+
+# 3) Best data model for your use case
+
+You need two graphs, not one.
+
+## Graph 1: schematic graph
+
+This is the visual and semantic structure.
+
+Nodes:
+
+* components
+* pins
+* junctions
+* labels
+* ports
+* sheet connectors
+
+Edges:
+
+* wire segments
+* pin-to-net relationships
+* hierarchical connections
+
+This graph answers:
+
+* what is connected to what
+* what should be drawn
+* what should highlight together
+* what should move together
+
+## Graph 2: simulation graph
+
+This is the circuit solver graph.
+
+Nodes:
+
+* electrical nets
+* component terminals
+
+Edges:
+
+* resistor branches
+* capacitor branches
+* transistor terminals
+* sources
+* controlled elements
+
+This graph answers:
+
+* what equations should be solved
+* what is the state variable set
+* what changes when a parameter changes
+
+Do not merge these graphs.
+Keep them linked by IDs.
+
+That separation is what makes the system scalable.
+
+---
+
+# 4) How to work out nodes and nets
+
+This is the critical algorithmic problem.
+
+You do not determine nets by drawing lines. You determine nets by connectivity rules.
+
+## Connectivity rules
+
+A pin belongs to a net if:
+
+* it is explicitly connected by wire endpoints
+* it is connected through a junction
+* it shares a label-driven net identity
+* it is connected through hierarchy ports
+* it is implicitly merged by exact coordinate contact, if KiCad semantics require it
+
+## Efficient method
+
+Build an **endpoint adjacency graph**.
+
+Each wire segment contributes two endpoints. Each endpoint is canonicalized to a grid coordinate.
+
+Then:
+
+1. Hash all endpoints by quantized position.
+2. Union connected endpoints using DSU/Union-Find.
+3. Merge all wire segments touching the same point.
+4. Add explicit junctions as forced merge points.
+5. Apply labels as net-name overrides or aliases.
+6. Propagate connectivity to pins and ports.
+7. Resolve hierarchical sheet connectivity.
+
+This gives you a net identity for every connected region.
+
+## Why this is best
+
+* linear or near-linear complexity
+* robust against large designs
+* easy to cache
+* easy to incrementally update
+* no need for geometry analysis beyond endpoint matching
+
+## What not to do
+
+Do not use:
+
+* pixel tracing
+* line intersection detection as the primary method
+* brute-force segment adjacency comparisons
+* AI inference for connectivity
+
+Those are slow and brittle.
+
+---
+
+# 5) Best rendering strategy
+
+Use **symbol primitives + vector wires**, not bitmap images.
+
+## Symbol rendering
+
+Each symbol should be stored as a reusable template containing:
+
+* lines
+* arcs
+* circles
+* polygons
+* pins
+* text placeholders
+
+Each symbol instance applies:
+
+* translation
+* rotation
+* mirroring
+* field substitution
+
+That gives you:
+
+* tiny storage
+* high render fidelity
+* easy selection
+* easy future editing
+
+## Wire rendering
+
+Wires should be rendered as:
+
+* polylines
+* orthogonal paths
+* segment groups
+
+Store the logical wire as a graph edge set, then generate render paths from it.
+
+## Best rendering engine
+
+Use a hybrid approach.
+
+### For the viewer:
+
+* SVG for symbols, labels, hit targets, and medium-size schematics
+* Canvas or WebGL for dense wire overlays or very large sheets
+
+### Recommended default:
+
+Start with SVG only.
+
+Why:
+
+* simplest interactivity
+* easy hover and click handling
+* easy text rendering
+* easiest to build correctly
+
+Later, when scale demands it:
+
+* use Canvas for background wire layer
+* keep SVG for symbols and hit testing
+* use virtualized viewports
+
+This hybrid model is the most practical.
+
+---
+
+# 6) How to keep drawing speeds fast
+
+The fastest system is not the one that draws most aggressively. It is the one that avoids unnecessary work.
+
+## Use these rules
+
+* render only visible objects
+* cache symbol templates
+* memoize transformed symbol instances
+* precompute bounding boxes
+* use spatial indexing for hit testing
+* batch redraws with requestAnimationFrame
+* separate static and dynamic layers
+* avoid full scene reflow on every minor action
+
+## Spatial indexing
+
+Use an R-tree, grid index, or quadtree for:
+
+* visible element queries
+* hover detection
+* selection boxes
+* viewport culling
+
+This is mandatory once designs become large.
+
+## Incremental updates
+
+Do not rerender the full schematic after every state change.
+
+Instead:
+
+* mark affected nodes dirty
+* regenerate only their view model
+* rerender only visible dirty regions
+
+That is how you keep the system responsive.
+
+---
+
+# 7) Storage should be small
+
+Your stored representation should not be a raw rendered scene dump.
+
+Store:
+
+* raw imported source
+* normalized canonical graph
+* symbol library references
+* small layout metadata
+* user edits as deltas
+* cached render tiles or scene partitions only when needed
+
+## Compression strategy
+
+Use:
+
+* string interning for repeated symbol names and field keys
+* numeric coordinate quantization
+* shared symbol templates
+* no duplication of pin geometry per symbol instance
+* binary encoding for large projects if needed later
+
+A schematic with 500 symbols should not store 500 copies of the symbol geometry.
+
+Store once, instance many times.
+
+## Best persistence model
+
+In Supabase/Postgres:
+
+* one table for projects
+* one for source files
+* one for parsed graph snapshots
+* one for user edits / operations
+* one for symbol library references
+* one for simulation metadata
+
+Do not store everything as one giant JSON blob if you want good long-term maintainability.
+Use structured storage with versioned snapshots.
+
+---
+
+# 8) Best algorithm for importing KiCad schematics
+
+Import in stages.
+
+## Stage 1: syntax parse
+
+Read `.kicad_sch` into AST.
+
+## Stage 2: semantic extraction
+
+Extract:
+
+* symbols
+* wires
+* labels
+* junctions
+* buses
+* sheets
+* sheet pins
+* global/local labels
+* graphical annotations
+
+## Stage 3: canonicalization
+
+Normalize:
+
+* coordinates
+* rotations
+* symbol identities
+* net naming
+* duplicate geometry
+* wire segment ordering
+
+## Stage 4: connectivity resolution
+
+Run:
+
+* endpoint hashing
+* union-find grouping
+* label resolution
+* hierarchy resolution
+
+## Stage 5: layout cache generation
+
+Compute:
+
+* bounding boxes
+* anchor points
+* clickable regions
+* label placements
+* viewport extents
+
+## Stage 6: persistence
+
+Store the canonical model and a compact render cache.
+
+This pipeline is deterministic and easy to debug.
+
+---
+
+# 9) Best way to design interactivity
+
+Interactivity must be ID-based.
+
+Every object should have:
+
+* a stable UUID
+* a type
+* a parent relationship
+* a semantic role
+* a visibility state
+* an electrical association
+
+## Example object types
+
+* symbol instance
+* symbol pin
+* wire segment
+* junction
+* label
+* sheet
+* sheet pin
+* net
+* bus
+* annotation
+
+## Interaction operations
+
+* hover component
+* highlight connected net
+* click pin
+* isolate symbol
+* drag component
+* rename label
+* select net
+* expand sheet
+* collapse sheet
+
+## Rule
+
+User actions should emit **operations**, not direct geometry mutations.
+
+Example:
+
+* move symbol
+* reconnect pin
+* add wire
+* split wire
+* rename label
+
+Each operation updates the canonical graph, then a renderer diff is generated.
+
+This is the clean engineering model.
+
+---
+
+# 10) How to build the simulator properly
+
+Do not simulate directly from the schematic view.
+
+Build a simulator pipeline from the canonical graph.
+
+## Step 1: convert schematic graph to netlist graph
+
+Identify:
+
+* electrical nets
+* component terminals
+* component models
+
+## Step 2: map components to solver primitives
+
+Examples:
+
+* resistor → conductance
+* capacitor → state element
+* inductor → state element
+* diode → nonlinear element
+* BJT/MOSFET → nonlinear multi-terminal element
+* voltage/current sources → sources
+* labels → net identifiers
+
+## Step 3: choose simulation level
+
+Support three levels eventually:
+
+### Level A: connectivity validation
+
+Checks:
+
+* floating nets
+* short circuits
+* unconnected pins
+* label collisions
+* illegal bus connections
+
+### Level B: DC analysis
+
+Checks:
+
+* bias points
+* net voltages
+* current flows
+* operating points
+
+### Level C: transient / AC analysis
+
+Checks:
+
+* time-domain response
+* frequency response
+* switching behavior
+
+## Recommended solver path
+
+Use a Modified Nodal Analysis engine.
+
+That is the standard practical choice.
+
+Why:
+
+* general-purpose
+* handles many circuit types
+* suitable for browser-side or server-side execution
+* compatible with netlist generation
+
+## Performance strategy for simulation
+
+* run validation on client
+* run heavier simulation on server
+* cache solved states by circuit fingerprint
+* invalidate only affected subgraphs on edits
+
+---
+
+# 11) Best client/server split
+
+You are on Next.js, Vercel, Supabase. Use that architecture cleanly.
+
+## Client should handle
+
+* rendering
+* pan/zoom
+* hover
+* selection
+* local state
+* lightweight validation
+* object manipulation
+* progressive loading
+
+## Server should handle
+
+* import parsing
+* canonical graph generation
+* symbol library resolution
+* heavy validation
+* simulation jobs
+* caching
+* project persistence
+* export generation
+
+## Why this split is correct
+
+The client stays fast and cheap.
+The server stays stateless where possible.
+The expensive work is isolated.
+
+---
+
+# 12) Best storage model in Supabase
+
+Use versioned immutable snapshots plus operations.
+
+## Recommended structure
+
+### projects
+
+Project metadata.
+
+### source_files
+
+Raw KiCad files and upload history.
+
+### schematic_versions
+
+Immutable canonical graph snapshots.
+
+### schematic_ops
+
+User operations as diffs.
+
+### symbol_library_cache
+
+Parsed symbol templates and shared primitives.
+
+### simulation_runs
+
+Inputs, outputs, solver settings, status.
+
+### annotations
+
+User notes, highlights, review comments.
+
+## Why snapshots plus ops
+
+* easy rollback
+* easy collaboration
+* easy audit trail
+* easy branching
+* easy partial recomputation
+
+This is the right long-term model.
+
+---
+
+# 13) Best engineering practices
+
+## Deterministic parsing
+
+The same KiCad file must always produce the same canonical graph.
+
+## Stable IDs
+
+Never depend on array position as identity.
+
+## Pure transformation functions
+
+Parsing, normalization, net resolution, and layout should be as pure as possible.
+
+## Incremental recomputation
+
+Only recompute what changed.
+
+## Clear boundaries
+
+Do not mix:
+
+* parser logic
+* rendering logic
+* simulation logic
+* persistence logic
+
+## Testing strategy
+
+Test at four levels:
+
+* parser unit tests
+* connectivity tests
+* rendering snapshot tests
+* simulation validation tests
+
+## Regression handling
+
+For every imported schematic, keep:
+
+* source file
+* canonical graph
+* rendered snapshot
+* netlist snapshot
+
+This makes future debugging possible.
+
+---
+
+# 14) What competitors are effectively doing
+
+Without relying on their internals, the common architecture of systems like schematic viewers, online circuit tools, and simulators is:
+
+* parse source into structured graph/state
+* render from symbols and wires, not from pixels
+* maintain separate electrical and visual models
+* use parametric symbols
+* store canonical metadata, not raw drawings
+* do incremental updates rather than full rebuilds
+
+The difference between a viewer and a full editor/simulator is not the renderer.
+It is the presence of a robust internal graph model and change propagation.
+
+Your advantage is that you can start with a strong importer and viewer, then add edit operations without rewriting the core.
+
+---
+
+# 15) The best algorithmic stack
+
+Here is the cleanest stack for your goals.
+
+## Parsing and graph construction
+
+* recursive descent / S-expression parser for KiCad format
+* AST to canonical model transformer
+* Union-Find for net resolution
+* spatial hashing for endpoint merging
+* hierarchy traversal for sheet connections
+
+## Rendering
+
+* SVG first
+* Canvas for optional dense wire layer
+* spatial index for hit tests
+* cached symbol transforms
+
+## Interaction
+
+* stable object IDs
+* operation-based state updates
+* dirty-region redraws
+
+## Simulation
+
+* netlist extraction
+* Modified Nodal Analysis
+* server-side execution for heavy jobs
+* cached fingerprints
+
+## Storage
+
+* immutable snapshots
+* delta ops
+* symbol library deduplication
+* compact normalized JSON or binary later
+
+---
+
+# 16) Recommended implementation phases
+
+## Phase 1: viewer
+
+Goal:
+
+* upload `.kicad_sch`
+* parse
+* render accurately
+* zoom/pan
+* click/select
+* net highlight
+
+This phase proves your graph model.
+
+## Phase 2: structural interactivity
+
+Add:
+
+* object tree
+* pin-level highlighting
+* net queries
+* sheet navigation
+* search
+* object properties panel
+
+## Phase 3: validation
+
+Add:
+
+* floating pin detection
+* unlabeled net warnings
+* duplicate label handling
+* connection consistency checks
+* hierarchy mismatch checks
+
+## Phase 4: simulation
+
+Add:
+
+* netlist export
+* DC solver
+* transient solver
+* component model mapping
+* result overlays
+
+## Phase 5: editing
+
+Add:
+
+* move component
+* add wire
+* split wire
+* add label
+* edit fields
+* reconnect nets
+* undo/redo
+* operation log
+
+## Phase 6: collaborative builder
+
+Add:
+
+* multi-user operations
+* locking or optimistic merge
+* branch/version control
+* comment threads
+* revision compare
+
+---
+
+# 17) What not to build
+
+Do not build these first:
+
+* freehand schematic drawing
+* AI-generated symbol geometry
+* image-based recognition of wires
+* full simulation before connectivity is solid
+* pixel storage of the schematic
+* one giant frontend state object
+
+These choices will slow the system and make it unstable.
+
+---
+
+# 18) Final recommended architecture in one sentence
+
+Build a **graph-first schematic platform** where KiCad text is parsed into a canonical electrical and visual graph, rendered with reusable parametric symbols and vector wires, interacted with through stable IDs, simulated through a separate netlist graph, and persisted as versioned snapshots plus operation diffs.
+
+---
+
+# 19) The best practical answer for your exact case
+
+For your current goal, the optimal path is:
+
+1. **Parse KiCad text into a semantic graph**
+2. **Resolve nets with endpoint hashing + union-find**
+3. **Render via SVG using reusable symbol templates**
+4. **Attach interaction to graph nodes, not pixels**
+5. **Store normalized snapshots in Supabase**
+6. **Run simulation on a separate MNA netlist model**
+7. **Use incremental dirty updates for speed**
+8. **Add editing only after the viewer is stable**
+
+That is the most server-efficient, storage-efficient, and future-proof approach.
+
+If this goes into Claude, treat it as the product’s architecture doctrine: **graph first, render second, simulate separately, edit by operations, never by pixels.**

@@ -70,3 +70,7 @@ out/
 # user uploads while developing
 /tmp
 /uploads
+
+
+*.kicad_symdir
+kicad_symbols
