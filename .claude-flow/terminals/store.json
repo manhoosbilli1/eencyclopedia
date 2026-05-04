@@ -1,0 +1,82 @@
+{
+  "sessions": {
+    "term-1777868025795-vtrm99": {
+      "id": "term-1777868025795-vtrm99",
+      "name": "vercel-env",
+      "status": "active",
+      "createdAt": "2026-05-04T04:13:45.795Z",
+      "lastActivity": "2026-05-04T04:24:03.919Z",
+      "workingDir": "/mnt/c/Users/capis/Desktop/server/eencyclopedia/eencyclopedia",
+      "history": [
+        {
+          "command": "which vercel || npm list -g vercel 2>/dev/null || echo \"vercel not found\"",
+          "output": "/usr/lib\n└── (empty)\n\nvercel not found\n",
+          "timestamp": "2026-05-04T04:13:56.450Z",
+          "exitCode": 0
+        },
+        {
+          "command": "npm install -g vercel 2>&1 | tail -5",
+          "output": "",
+          "timestamp": "2026-05-04T04:15:01.742Z",
+          "exitCode": 1
+        },
+        {
+          "command": "pnpm add -g vercel 2>&1 | tail -5",
+          "output": " ERR_PNPM_NO_GLOBAL_BIN_DIR  Unable to find the global bin directory\n\nRun \"pnpm setup\" to create it automatically, or set the global-bin-dir setting, or the PNPM_HOME env variable. The global bin directory should be in the PATH.\n",
+          "timestamp": "2026-05-04T04:15:49.758Z",
+          "exitCode": 0
+        },
+        {
+          "command": "pnpm setup 2>&1 && export PNPM_HOME=\"$HOME/.local/share/pnpm\" && export PATH=\"$PNPM_HOME:$PATH\" && pnpm add -g vercel 2>&1 | tail -5",
+          "output": "Appended new lines to /root/.zshrc\n\nNext configuration changes were made:\nexport PNPM_HOME=\"/root/.local/share/pnpm\"\ncase \":$PATH:\" in\n  *\":$PNPM_HOME:\"*) ;;\n  *) export PATH=\"$PNPM_HOME:$PATH\" ;;\nesac\n\nTo start using pnpm, run:\nsource /root/.zshrc\n\n/root/.local/share/pnpm/global/5:\n+ vercel 53.1.0\n\nDone in 1m 7.5s using pnpm v9.15.9\n",
+          "timestamp": "2026-05-04T04:17:07.372Z",
+          "exitCode": 0
+        },
+        {
+          "command": "export PNPM_HOME=\"/root/.local/share/pnpm\" && export PATH=\"$PNPM_HOME:$PATH\" && vercel env pull .env.local --yes 2>&1",
+          "output": "> NOTE: The Vercel CLI now collects telemetry regarding usage of the CLI.\n> This information is used to shape the CLI roadmap and prioritize features.\n> You can learn more, including how to opt-out if you'd not like to participate in this program, by visiting the following URL:\n> https://vercel.com/docs/cli/about-telemetry\nError: No existing credentials found. Please run `vercel login` or pass \"--token\"\nLearn More: https://err.sh/vercel/no-credentials-found\n",
+          "timestamp": "2026-05-04T04:17:13.846Z",
+          "exitCode": 1
+        },
+        {
+          "command": "export PNPM_HOME=\"/root/.local/share/pnpm\" && export PATH=\"$PNPM_HOME:$PATH\" && vercel project ls 2>&1",
+          "output": "Fetching projects in manhoosbilli1s-projects\n> Projects found under manhoosbilli1s-projects \b [2s]\n\n  Project Name               Latest Production URL                                      Updated   Node Version   \n  eencyclopedia              https://eencyclopedia-manhoosbilli1s-projects.vercel.app   2h        24.x           \n  capistor-website           https://capistor.com                                       1d        22.x           \n  e-plant-shopping-project   https://e-plant-shopping-project-beta.vercel.app           150d      22.x           \n\n",
+          "timestamp": "2026-05-04T04:21:04.663Z",
+          "exitCode": 0
+        },
+        {
+          "command": "export PNPM_HOME=\"/root/.local/share/pnpm\" && export PATH=\"$PNPM_HOME:$PATH\" && vercel link --scope manhoosbilli1s-projects --project eencyclopedia --yes 2>&1",
+          "output": "Loading scopes…\nSearching for existing projects…\nLinked to manhoosbilli1s-projects/eencyclopedia (created .vercel)\n",
+          "timestamp": "2026-05-04T04:21:13.114Z",
+          "exitCode": 0
+        },
+        {
+          "command": "export PNPM_HOME=\"/root/.local/share/pnpm\" && export PATH=\"$PNPM_HOME:$PATH\" && vercel env pull .env.local --yes 2>&1",
+          "output": "Retrieving project…\n> Downloading `development` Environment Variables for manhoosbilli1s-projects/eencyclopedia\nDownloading\n\nChanges:\n+ NEXT_PUBLIC_SENTRY_DSN (Updated)\n+ SENTRY_AUTH_TOKEN (Updated)\n+ NEXT_PUBLIC_NEXT_PUBLIC_POSTHOG_KEY_POSTHOG_HOST\n+ NEXT_PUBLIC_NEXT_PUBLIC_POSTHOG_KEY_POSTHOG_PROJECT_TOKEN\n+ SENTRY_ORG\n+ SENTRY_OTLP_TRACES_URL\n+ SENTRY_PROJECT\n+ SENTRY_PUBLIC_KEY\n+ SENTRY_VERCEL_LOG_DRAIN_URL\n+ VERCEL_OIDC_TOKEN\n- ADMIN_EMAILS\n- AI_DAILY_CAP_FREE\n- AI_DAILY_CAP_PRO\n- AI_DAILY_CAP_PRO_PLUS\n- AI_PROVIDER\n- ANTHROPIC_API_KEY\n- ANTHROPIC_MODEL_HAIKU\n- ANTHROPIC_MODEL_OPUS\n- ANTHROPIC_MODEL_SONNET\n- DIGIKEY_CLIENT_ID\n- DIGIKEY_CLIENT_SECRET\n- GEMINI_API_KEY\n- GEMINI_MODEL_FAST\n- GEMINI_MODEL_FLASH\n- GEMINI_MODEL_PRO\n- LANGFUSE_HOST\n- LANGFUSE_PUBLIC_KEY\n- LANGFUSE_SECRET_KEY\n- LCSC_USER_AGENT\n- MOUSER_API_KEY\n- NEXT_PUBLIC_FEATURE_BILLING\n- NEXT_PUBLIC_FEATURE_DISTRIBUTOR_PRICING\n- NEXT_PUBLIC_FEATURE_FORUM\n- NEXT_PUBLIC_FEATURE_SPICE_WASM\n- NEXT_PUBLIC_POSTHOG_HOST\n- NEXT_PUBLIC_POSTHOG_KEY\n- NEXT_PUBLIC_SITE_URL\n- NEXT_PUBLIC_SUPABASE_ANON_KEY\n- NEXT_PUBLIC_SUPABASE_URL\n- NODE_ENV\n- OCTOPART_API_KEY\n- OPENAI_API_KEY\n- RESEND_API_KEY\n- STRIPE_PRICE_PRO\n- STRIPE_PRICE_PRO_PLUS\n- STRIPE_SECRET_KEY\n- STRIPE_WEBHOOK_SECRET\n- SUPABASE_DB_URL\n- SUPABASE_PROJECT_REF\n- SUPABASE_SERVICE_ROLE_KEY\n- UPSTASH_REDIS_REST_TOKEN\n- UPSTASH_REDIS_REST_URL\n- VOYAGE_API_KEY\n- VOYAGE_EMBED_DIM\n- VOYAGE_MODEL\n\nUpdated .env.local file and added it to .gitignore [378ms]\n",
+          "timestamp": "2026-05-04T04:21:19.754Z",
+          "exitCode": 0
+        },
+        {
+          "command": "grep -c '=' .env.local && grep '^[A-Z]' .env.local | cut -d= -f1 | sort",
+          "output": "10\nNEXT_PUBLIC_NEXT_PUBLIC_POSTHOG_KEY_POSTHOG_HOST\nNEXT_PUBLIC_NEXT_PUBLIC_POSTHOG_KEY_POSTHOG_PROJECT_TOKEN\nNEXT_PUBLIC_SENTRY_DSN\nSENTRY_AUTH_TOKEN\nSENTRY_ORG\nSENTRY_OTLP_TRACES_URL\nSENTRY_PROJECT\nSENTRY_PUBLIC_KEY\nSENTRY_VERCEL_LOG_DRAIN_URL\nVERCEL_OIDC_TOKEN\n",
+          "timestamp": "2026-05-04T04:21:32.430Z",
+          "exitCode": 0
+        },
+        {
+          "command": "grep '^[A-Z]' .env.local | cut -d= -f1 | sort",
+          "output": "NEXT_PUBLIC_NEXT_PUBLIC_POSTHOG_KEY_POSTHOG_HOST\nNEXT_PUBLIC_NEXT_PUBLIC_POSTHOG_KEY_POSTHOG_PROJECT_TOKEN\nNEXT_PUBLIC_SENTRY_DSN\nSENTRY_AUTH_TOKEN\nSENTRY_ORG\nSENTRY_OTLP_TRACES_URL\nSENTRY_PROJECT\nSENTRY_PUBLIC_KEY\nSENTRY_VERCEL_LOG_DRAIN_URL\nVERCEL_OIDC_TOKEN\n",
+          "timestamp": "2026-05-04T04:23:00.125Z",
+          "exitCode": 0
+        },
+        {
+          "command": "export PNPM_HOME=\"/root/.local/share/pnpm\" && export PATH=\"$PNPM_HOME:$PATH\" && vercel env pull .env.local --environment=production --yes 2>&1",
+          "output": "Retrieving project…\n> Overwriting existing .env.local file\n> Downloading `production` Environment Variables for manhoosbilli1s-projects/eencyclopedia\nDownloading\n\nChanges:\n+ VERCEL_OIDC_TOKEN (Updated)\n+ ADMIN_EMAILS\n+ AI_DAILY_CAP_FREE\n+ AI_DAILY_CAP_PRO\n+ AI_DAILY_CAP_PRO_PLUS\n+ AI_PROVIDER\n+ ANTHROPIC_API_KEY\n+ ANTHROPIC_MODEL_HAIKU\n+ ANTHROPIC_MODEL_OPUS\n+ ANTHROPIC_MODEL_SONNET\n+ GEMINI_API_KEY\n+ GEMINI_MODEL_FAST\n+ GEMINI_MODEL_FLASH\n+ GEMINI_MODEL_PRO\n+ LANGFUSE_HOST\n+ LCSC_USER_AGENT\n+ NEXT_PUBLIC_FEATURE_BILLING\n+ NEXT_PUBLIC_FEATURE_DISTRIBUTOR_PRICING\n+ NEXT_PUBLIC_FEATURE_FORUM\n+ NEXT_PUBLIC_FEATURE_SPICE_WASM\n+ NEXT_PUBLIC_POSTHOG_HOST\n+ NEXT_PUBLIC_SITE_URL\n+ NEXT_PUBLIC_SUPABASE_ANON_KEY\n+ NEXT_PUBLIC_SUPABASE_URL\n+ NODE_ENV\n+ NX_DAEMON\n+ SUPABASE_DB_URL\n+ SUPABASE_PROJECT_REF\n+ SUPABASE_SERVICE_ROLE_KEY\n+ TURBO_CACHE\n+ TURBO_DOWNLOAD_LOCAL_ENABLED\n+ TURBO_REMOTE_ONLY\n+ TURBO_RUN_SUMMARY\n+ VERCEL\n+ VERCEL_ENV\n+ VERCEL_GIT_COMMIT_AUTHOR_LOGIN\n+ VERCEL_GIT_COMMIT_AUTHOR_NAME\n+ VERCEL_GIT_COMMIT_MESSAGE\n+ VERCEL_GIT_COMMIT_REF\n+ VERCEL_GIT_COMMIT_SHA\n+ VERCEL_GIT_PREVIOUS_SHA\n+ VERCEL_GIT_PROVIDER\n+ VERCEL_GIT_PULL_REQUEST_ID\n+ VERCEL_GIT_REPO_ID\n+ VERCEL_GIT_REPO_OWNER\n+ VERCEL_GIT_REPO_SLUG\n+ VERCEL_TARGET_ENV\n+ VERCEL_URL\n+ VOYAGE_API_KEY\n+ VOYAGE_EMBED_DIM\n+ VOYAGE_MODEL\n\nUpdated .env.local file  [453ms]\n",
+          "timestamp": "2026-05-04T04:24:03.919Z",
+          "exitCode": 0
+        }
+      ],
+      "env": {}
+    }
+  },
+  "version": "3.0.0"
+}

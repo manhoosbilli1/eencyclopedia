@@ -2,6 +2,8 @@
 
 const { withSentryConfig } = require('@sentry/nextjs');
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseHost = (() => {
   if (!supabaseUrl) return null;
@@ -27,6 +29,10 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // In dev, put the Turbopack cache on the fast WSL2 native ext4 filesystem
+  // instead of the slow Windows NTFS mount at /mnt/c/. Avoids 9P protocol
+  // overhead on every cache read/write during startup and HMR.
+  ...(isDev && { distDir: '/tmp/eencyclopedia-next' }),
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
@@ -60,8 +66,6 @@ const nextConfig = {
   },
   webpack(config, { isServer }) {
     if (isServer) {
-      // onnxruntime-node ships platform-specific .node binaries that webpack
-      // cannot parse. Externalise them so Node.js loads them natively at runtime.
       const existing = config.externals ?? [];
       const arr = Array.isArray(existing) ? existing : [existing];
       config.externals = [...arr, 'onnxruntime-node', '@huggingface/transformers'];
@@ -70,16 +74,18 @@ const nextConfig = {
   },
 };
 
-module.exports = withSentryConfig(nextConfig, {
-  org: 'capistor-technologies-fzco',
-  project: 'sentry-claret-horizon',
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  tunnelRoute: '/monitoring',
-  webpack: {
-    automaticVercelMonitors: true,
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
-});
+module.exports = isDev
+  ? nextConfig
+  : withSentryConfig(nextConfig, {
+      org: 'capistor-technologies-fzco',
+      project: 'sentry-claret-horizon',
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      tunnelRoute: '/monitoring',
+      webpack: {
+        automaticVercelMonitors: true,
+        treeshake: {
+          removeDebugLogging: true,
+        },
+      },
+    });

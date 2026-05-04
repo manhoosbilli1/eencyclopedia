@@ -74,3 +74,6 @@ out/
 
 *.kicad_symdir
 kicad_symbols
+# Sentry Config File
+.env.sentry-build-plugin
+.env*.local
