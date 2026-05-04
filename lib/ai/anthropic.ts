@@ -134,8 +134,8 @@ export async function messages(args: MessagesArgs): Promise<MessagesResult> {
     const hit = await tryCacheHit(cacheKey);
     if (hit) {
       // Telemetry: log a $0/0/0 row marked cached, so dashboards still count
-      // the call but don't double-bill.
-      await logCall({
+      // the call but don't double-bill. Best-effort — don't block the return.
+      logCall({
         endpoint: args.endpoint,
         model,
         tokensIn: 0,
@@ -143,6 +143,9 @@ export async function messages(args: MessagesArgs): Promise<MessagesResult> {
         costUsd: 0,
         cached: true,
         schematicId: args.schematicId,
+      }).catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('[anthropic] failed to log cached ai_call:', (err as Error).message);
       });
       return { ...hit, cached: true };
     }
@@ -159,7 +162,9 @@ export async function messages(args: MessagesArgs): Promise<MessagesResult> {
     res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': serverEnv.ANTHROPIC_API_KEY,
+        // ANTHROPIC_API_KEY is guaranteed non-null when AI_PROVIDER=anthropic
+        // (env.ts superRefine validates this at boot). The `!` is safe.
+        'x-api-key': serverEnv.ANTHROPIC_API_KEY ?? '',
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
         'user-agent': 'eencyclopedia/0.1 (server)',

@@ -128,11 +128,8 @@ async function embedQuery(query: string): Promise<number[] | null> {
   const trimmed = query.trim();
   if (trimmed.length === 0) return null;
 
-  const { embedText } = await import('@/lib/ai/voyage');
-  return await embedText({
-    input: trimmed,
-    inputType: 'query',
-  });
+  const { embedText } = await import('@/lib/ai/embeddings');
+  return await embedText({ input: trimmed, inputType: 'query' }).catch(() => null);
 }
 
 function toWebsearchQuery(input: string): string {
