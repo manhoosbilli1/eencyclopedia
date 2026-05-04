@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 
-// Pull Supabase project ref out of the URL to whitelist its storage host
-// for next/image. Falls back to a permissive pattern at build-time only.
+const { withSentryConfig } = require('@sentry/nextjs');
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseHost = (() => {
   if (!supabaseUrl) return null;
@@ -30,15 +30,11 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
-    // Larger body limits later, when we accept .kicad_sch uploads.
     serverActions: {
       bodySizeLimit: '5mb',
     },
-    // pdf-parse loads test PDF files during its own require() initialisation.
-    // Bundling it through webpack in a serverless/edge context makes that
-    // path resolution fail with ENOENT. Externalising it tells Next.js to
-    // leave it as a native Node.js require at runtime, which works correctly.
     serverComponentsExternalPackages: ['pdf-parse'],
+    instrumentationHook: true,
   },
   images: {
     remotePatterns: supabaseHost
@@ -64,4 +60,12 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: true,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+});

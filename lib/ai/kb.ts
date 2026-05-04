@@ -236,14 +236,13 @@ export async function ingestTextbookChunks(chunks: KbChunkPayload[]): Promise<nu
   const { getSupabaseAdmin } = await import('@/lib/supabase/admin');
   const admin = getSupabaseAdmin();
 
-  const { error, count } = await admin
+  const { error } = await admin
     .from('kb_chunks')
-    .insert(chunks as never)
-    .select('id', { count: 'exact' });
+    .insert(chunks as never);
 
   if (error) {
     throw new Error(`Failed to insert KB chunks: ${error.message}`);
   }
 
-  return count ?? 0;
+  return chunks.length;
 }

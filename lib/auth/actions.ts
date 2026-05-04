@@ -25,6 +25,7 @@ import { z } from 'zod';
 import { publicEnv } from '@/lib/env';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { isPlaceholderUsername, validateUsername } from '@/lib/auth/username';
+import type { TablesUpdate } from '@/lib/supabase/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -235,4 +236,67 @@ export async function requireAuthedProfile(opts?: { allowPlaceholder?: boolean }
   }
 
   return { user, profile };
+}
+
+// ---------------------------------------------------------------------------
+// Profile settings update
+// ---------------------------------------------------------------------------
+
+const UpdateProfileSchema = z.object({
+  display_name: z.string().max(64).optional(),
+  bio: z.string().max(500).optional(),
+  explanation_mode: z.enum(['intuitive', 'math_only', 'both']).optional(),
+});
+
+export type UpdateProfileResult = { ok: true } | { ok: false; error: string };
+
+export async function updateProfileSettings(
+  _prevState: UpdateProfileResult | undefined,
+  formData: FormData,
+): Promise<UpdateProfileResult> {
+  const supabase = createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Not signed in.' };
+
+  const parsed = UpdateProfileSchema.safeParse({
+    display_name: formData.get('display_name') ?? undefined,
+    bio: formData.get('bio') ?? undefined,
+    explanation_mode: formData.get('explanation_mode') ?? undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid input.' };
+  }
+
+  const { display_name, bio, explanation_mode } = parsed.data;
+
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('settings')
+    .eq('id', user.id)
+    .single();
+
+  const currentSettings =
+    existing && typeof existing.settings === 'object' && existing.settings !== null
+      ? (existing.settings as Record<string, unknown>)
+      : {};
+
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (display_name !== undefined) updates.display_name = display_name.trim() || null;
+  if (bio !== undefined) updates.bio = bio.trim() || null;
+  if (explanation_mode !== undefined) {
+    updates.settings = { ...currentSettings, explanation_mode };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates as TablesUpdate<'profiles'>)
+    .eq('id', user.id);
+
+  if (error) return { ok: false, error: 'Could not save settings.' };
+
+  revalidatePath('/settings');
+  revalidatePath('/', 'layout');
+  return { ok: true };
 }

@@ -1,396 +1,725 @@
-/**
- * Temporary handwritten Supabase types.
- *
- * Replace this file by running:
- *   pnpm db:types
- *
- * This keeps the repo's placeholder phase usable under `strict` until the
- * real generated types are pulled from the linked project.
- */
-
+// Auto-generated from Supabase — do not edit by hand.
+// Regenerate: pnpm db:types
 export type Json =
   | string
   | number
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
-
-type Vector = number[];
+  | Json[]
 
 export type Database = {
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
       ai_cache: {
         Row: {
-          cache_key: string;
-          response: Json;
-          hit_count: number;
-          cost_saved_usd: number;
-          created_at: string;
-          expires_at: string | null;
-        };
+          cache_key: string
+          cost_saved_usd: number
+          created_at: string
+          expires_at: string | null
+          hit_count: number
+          response: Json
+        }
         Insert: {
-          cache_key: string;
-          response: Json;
-          hit_count?: number;
-          cost_saved_usd?: number;
-          created_at?: string;
-          expires_at?: string | null;
-        };
+          cache_key: string
+          cost_saved_usd?: number
+          created_at?: string
+          expires_at?: string | null
+          hit_count?: number
+          response: Json
+        }
         Update: {
-          cache_key?: string;
-          response?: Json;
-          hit_count?: number;
-          cost_saved_usd?: number;
-          created_at?: string;
-          expires_at?: string | null;
-        };
-      };
+          cache_key?: string
+          cost_saved_usd?: number
+          created_at?: string
+          expires_at?: string | null
+          hit_count?: number
+          response?: Json
+        }
+        Relationships: []
+      }
       ai_calls: {
         Row: {
-          id: number;
-          user_id: string;
-          endpoint: string;
-          provider: string;
-          model: string;
-          tokens_in: number;
-          tokens_out: number;
-          cost_usd: number;
-          cached: boolean;
-          schematic_id: string | null;
-          request_meta: Json | null;
-          created_at: string;
-        };
+          cached: boolean
+          cost_usd: number
+          created_at: string
+          endpoint: string
+          id: number
+          model: string
+          provider: string
+          request_meta: Json | null
+          schematic_id: string | null
+          tokens_in: number
+          tokens_out: number
+          user_id: string
+        }
         Insert: {
-          id?: number;
-          user_id: string;
-          endpoint: string;
-          provider: string;
-          model: string;
-          tokens_in?: number;
-          tokens_out?: number;
-          cost_usd?: number;
-          cached?: boolean;
-          schematic_id?: string | null;
-          request_meta?: Json | null;
-          created_at?: string;
-        };
+          cached?: boolean
+          cost_usd?: number
+          created_at?: string
+          endpoint: string
+          id?: number
+          model: string
+          provider: string
+          request_meta?: Json | null
+          schematic_id?: string | null
+          tokens_in?: number
+          tokens_out?: number
+          user_id: string
+        }
         Update: {
-          id?: number;
-          user_id?: string;
-          endpoint?: string;
-          provider?: string;
-          model?: string;
-          tokens_in?: number;
-          tokens_out?: number;
-          cost_usd?: number;
-          cached?: boolean;
-          schematic_id?: string | null;
-          request_meta?: Json | null;
-          created_at?: string;
-        };
-      };
+          cached?: boolean
+          cost_usd?: number
+          created_at?: string
+          endpoint?: string
+          id?: number
+          model?: string
+          provider?: string
+          request_meta?: Json | null
+          schematic_id?: string | null
+          tokens_in?: number
+          tokens_out?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_calls_schematic_id_fkey"
+            columns: ["schematic_id"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_calls_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_feedback: {
         Row: {
-          id: number;
-          user_id: string;
-          ai_call_id: number | null;
-          rating: number;
-          comment: string | null;
-          created_at: string;
-        };
+          ai_call_id: number | null
+          comment: string | null
+          created_at: string
+          id: number
+          rating: number
+          user_id: string
+        }
         Insert: {
-          id?: number;
-          user_id: string;
-          ai_call_id?: number | null;
-          rating: number;
-          comment?: string | null;
-          created_at?: string;
-        };
+          ai_call_id?: number | null
+          comment?: string | null
+          created_at?: string
+          id?: number
+          rating: number
+          user_id: string
+        }
         Update: {
-          id?: number;
-          user_id?: string;
-          ai_call_id?: number | null;
-          rating?: number;
-          comment?: string | null;
-          created_at?: string;
-        };
-      };
+          ai_call_id?: number | null
+          comment?: string | null
+          created_at?: string
+          id?: number
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feedback_ai_call_id_fkey"
+            columns: ["ai_call_id"]
+            isOneToOne: false
+            referencedRelation: "ai_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      circuit_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          schematic_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          schematic_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          schematic_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuit_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "circuit_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_comments_schematic_id_fkey"
+            columns: ["schematic_id"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      circuit_favorites: {
+        Row: {
+          circuit_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          circuit_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          circuit_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuit_favorites_circuit_id_fkey"
+            columns: ["circuit_id"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      circuit_stars: {
+        Row: {
+          created_at: string
+          schematic_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          schematic_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          schematic_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuit_stars_schematic_id_fkey"
+            columns: ["schematic_id"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_stars_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       components: {
         Row: {
-          id: string;
-          mpn: string;
-          manufacturer: string;
-          family: string | null;
-          type: string;
-          parameters: Json;
-          datasheet_url: string | null;
-          datasheet_sha256: string | null;
-          embedding: Vector | null;
-          source: string;
-          verified: boolean;
-          created_at: string;
-          updated_at: string;
-        };
+          created_at: string
+          datasheet_sha256: string | null
+          datasheet_url: string | null
+          embedding: string | null
+          family: string | null
+          id: string
+          manufacturer: string
+          mpn: string
+          parameters: Json
+          source: string
+          type: string
+          updated_at: string
+          verified: boolean
+        }
         Insert: {
-          id?: string;
-          mpn: string;
-          manufacturer: string;
-          family?: string | null;
-          type: string;
-          parameters?: Json;
-          datasheet_url?: string | null;
-          datasheet_sha256?: string | null;
-          embedding?: Vector | null;
-          source: string;
-          verified?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
+          created_at?: string
+          datasheet_sha256?: string | null
+          datasheet_url?: string | null
+          embedding?: string | null
+          family?: string | null
+          id?: string
+          manufacturer: string
+          mpn: string
+          parameters?: Json
+          source: string
+          type: string
+          updated_at?: string
+          verified?: boolean
+        }
         Update: {
-          id?: string;
-          mpn?: string;
-          manufacturer?: string;
-          family?: string | null;
-          type?: string;
-          parameters?: Json;
-          datasheet_url?: string | null;
-          datasheet_sha256?: string | null;
-          embedding?: Vector | null;
-          source?: string;
-          verified?: boolean;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
+          created_at?: string
+          datasheet_sha256?: string | null
+          datasheet_url?: string | null
+          embedding?: string | null
+          family?: string | null
+          id?: string
+          manufacturer?: string
+          mpn?: string
+          parameters?: Json
+          source?: string
+          type?: string
+          updated_at?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
-          user_id: string;
-          component_id: string;
-          notes: string | null;
-          created_at: string;
-        };
+          component_id: string
+          created_at: string
+          notes: string | null
+          user_id: string
+        }
         Insert: {
-          user_id: string;
-          component_id: string;
-          notes?: string | null;
-          created_at?: string;
-        };
+          component_id: string
+          created_at?: string
+          notes?: string | null
+          user_id: string
+        }
         Update: {
-          user_id?: string;
-          component_id?: string;
-          notes?: string | null;
-          created_at?: string;
-        };
-      };
+          component_id?: string
+          created_at?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "favorites_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       karma_events: {
         Row: {
-          id: number;
-          user_id: string;
-          delta: number;
-          reason: string;
-          ref_id: string | null;
-          created_at: string;
-        };
+          created_at: string
+          delta: number
+          id: number
+          reason: string
+          ref_id: string | null
+          user_id: string
+        }
         Insert: {
-          id?: number;
-          user_id: string;
-          delta: number;
-          reason: string;
-          ref_id?: string | null;
-          created_at?: string;
-        };
+          created_at?: string
+          delta: number
+          id?: number
+          reason: string
+          ref_id?: string | null
+          user_id: string
+        }
         Update: {
-          id?: number;
-          user_id?: string;
-          delta?: number;
-          reason?: string;
-          ref_id?: string | null;
-          created_at?: string;
-        };
-      };
+          created_at?: string
+          delta?: number
+          id?: number
+          reason?: string
+          ref_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "karma_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kb_chunks: {
         Row: {
-          id: string;
-          source_type: string;
-          source_id: string;
-          content: string;
-          content_sha256: string;
-          embedding: Vector | null;
-          metadata: Json;
-          created_at: string;
-        };
+          content: string
+          content_sha256: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json
+          source_id: string
+          source_type: string
+        }
         Insert: {
-          id?: string;
-          source_type: string;
-          source_id: string;
-          content: string;
-          content_sha256: string;
-          embedding?: Vector | null;
-          metadata?: Json;
-          created_at?: string;
-        };
+          content: string
+          content_sha256: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          source_id: string
+          source_type: string
+        }
         Update: {
-          id?: string;
-          source_type?: string;
-          source_id?: string;
-          content?: string;
-          content_sha256?: string;
-          embedding?: Vector | null;
-          metadata?: Json;
-          created_at?: string;
-        };
-      };
+          content?: string
+          content_sha256?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json
+          source_id?: string
+          source_type?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
-          id: string;
-          username: string;
-          display_name: string | null;
-          karma: number;
-          bio: string | null;
-          avatar_url: string | null;
-          settings: Json;
-          tier: string;
-          created_at: string;
-          updated_at: string;
-        };
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          karma: number
+          settings: Json
+          tier: string
+          updated_at: string
+          username: string
+        }
         Insert: {
-          id: string;
-          username: string;
-          display_name?: string | null;
-          karma?: number;
-          bio?: string | null;
-          avatar_url?: string | null;
-          settings?: Json;
-          tier?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          karma?: number
+          settings?: Json
+          tier?: string
+          updated_at?: string
+          username: string
+        }
         Update: {
-          id?: string;
-          username?: string;
-          display_name?: string | null;
-          karma?: number;
-          bio?: string | null;
-          avatar_url?: string | null;
-          settings?: Json;
-          tier?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          karma?: number
+          settings?: Json
+          tier?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       schematic_components: {
         Row: {
-          schematic_id: string;
-          designator: string;
-          component_id: string | null;
-          value: string | null;
-        };
+          component_id: string | null
+          designator: string
+          schematic_id: string
+          value: string | null
+        }
         Insert: {
-          schematic_id: string;
-          designator: string;
-          component_id?: string | null;
-          value?: string | null;
-        };
+          component_id?: string | null
+          designator: string
+          schematic_id: string
+          value?: string | null
+        }
         Update: {
-          schematic_id?: string;
-          designator?: string;
-          component_id?: string | null;
-          value?: string | null;
-        };
-      };
+          component_id?: string | null
+          designator?: string
+          schematic_id?: string
+          value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schematic_components_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schematic_components_schematic_id_fkey"
+            columns: ["schematic_id"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schematics: {
         Row: {
-          id: string;
-          owner_id: string;
-          title: string;
-          description: string | null;
-          sexp: string;
-          raw_kicad_url: string | null;
-          svg_url: string | null;
-          thumbnail_url: string | null;
-          component_count: number;
-          visibility: 'public' | 'unlisted' | 'private';
-          fork_of: string | null;
-          spice_results: Json | null;
-          ai_summary: string | null;
-          ai_summary_struct: Json | null;
-          summary_embedding: Vector | null;
-          star_count: number;
-          fork_count: number;
-          search_vector: unknown;
-          created_at: string;
-          updated_at: string;
-        };
+          ai_summary: string | null
+          ai_summary_struct: Json | null
+          component_count: number
+          created_at: string
+          description: string | null
+          fork_count: number
+          fork_of: string | null
+          id: string
+          owner_id: string
+          raw_kicad_url: string | null
+          search_vector: unknown
+          sexp: string
+          spice_results: Json | null
+          star_count: number
+          summary_embedding: string | null
+          svg_url: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          visibility: string
+        }
         Insert: {
-          id?: string;
-          owner_id: string;
-          title: string;
-          description?: string | null;
-          sexp: string;
-          raw_kicad_url?: string | null;
-          svg_url?: string | null;
-          thumbnail_url?: string | null;
-          component_count?: number;
-          visibility?: 'public' | 'unlisted' | 'private';
-          fork_of?: string | null;
-          spice_results?: Json | null;
-          ai_summary?: string | null;
-          ai_summary_struct?: Json | null;
-          summary_embedding?: Vector | null;
-          star_count?: number;
-          fork_count?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
+          ai_summary?: string | null
+          ai_summary_struct?: Json | null
+          component_count: number
+          created_at?: string
+          description?: string | null
+          fork_count?: number
+          fork_of?: string | null
+          id?: string
+          owner_id: string
+          raw_kicad_url?: string | null
+          search_vector?: unknown
+          sexp: string
+          spice_results?: Json | null
+          star_count?: number
+          summary_embedding?: string | null
+          svg_url?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          visibility?: string
+        }
         Update: {
-          id?: string;
-          owner_id?: string;
-          title?: string;
-          description?: string | null;
-          sexp?: string;
-          raw_kicad_url?: string | null;
-          svg_url?: string | null;
-          thumbnail_url?: string | null;
-          component_count?: number;
-          visibility?: 'public' | 'unlisted' | 'private';
-          fork_of?: string | null;
-          spice_results?: Json | null;
-          ai_summary?: string | null;
-          ai_summary_struct?: Json | null;
-          summary_embedding?: Vector | null;
-          star_count?: number;
-          fork_count?: number;
-          search_vector?: unknown;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-    };
-    Views: Record<string, never>;
+          ai_summary?: string | null
+          ai_summary_struct?: Json | null
+          component_count?: number
+          created_at?: string
+          description?: string | null
+          fork_count?: number
+          fork_of?: string | null
+          id?: string
+          owner_id?: string
+          raw_kicad_url?: string | null
+          search_vector?: unknown
+          sexp?: string
+          spice_results?: Json | null
+          star_count?: number
+          summary_embedding?: string | null
+          svg_url?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schematics_fork_of_fkey"
+            columns: ["fork_of"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schematics_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
-      ai_spend_today: {
-        Args: { p_user_id: string };
-        Returns: number;
-      };
+      ai_spend_today: { Args: { p_user_id: string }; Returns: number }
       match_kb_chunks: {
-        Args: { query_embedding: number[]; match_count?: number };
+        Args: { match_count?: number; query_embedding: string }
         Returns: {
-          id: string;
-          source_type: string;
-          source_id: string;
-          content: string;
-          metadata: Json;
-          similarity: number;
-        }[];
-      };
-      recompute_karma: {
-        Args: { p_user_id: string };
-        Returns: undefined;
-      };
-    };
-    Enums: Record<string, never>;
-    CompositeTypes: Record<string, never>;
-  };
-};
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+          source_id: string
+          source_type: string
+        }[]
+      }
+      recompute_karma: { Args: { p_user_id: string }; Returns: undefined }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

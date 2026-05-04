@@ -66,6 +66,7 @@ export async function Header() {
                   ★
                 </Link>
                 <Link href={`/profile/${username}`}>@{username}</Link>
+                <Link href="/settings" title="Settings">⚙</Link>
                 {isAdmin ? (
                   <Link
                     href="/admin/seed"

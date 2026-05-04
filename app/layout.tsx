@@ -11,6 +11,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { publicEnv } from '@/lib/env';
 import { Header } from '@/components/ui/header';
+import { PHProvider } from '@/components/providers/posthog';
 import './globals.css';
 
 const fontSans = Inter({
@@ -80,8 +81,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={`${fontSans.variable} ${fontMono.variable}`}>
       <body className="min-h-dvh bg-background font-sans text-foreground">
-        <Header />
-        {children}
+        <PHProvider>
+          <Header />
+          {children}
+        </PHProvider>
       </body>
     </html>
   );
