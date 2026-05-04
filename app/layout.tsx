@@ -7,6 +7,7 @@
  *   https://nextjs.org/docs/app/api-reference/components/font
  */
 
+import * as Sentry from '@sentry/nextjs';
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { publicEnv } from '@/lib/env';
@@ -26,47 +27,52 @@ const fontMono = JetBrains_Mono({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),
-  title: {
-    default: 'eencyclopedia — circuits, fast',
-    template: '%s · eencyclopedia',
-  },
-  description:
-    'A reference, search, and AI analysis tool for electronic circuits. Upload .kicad_sch files, ask questions, run trivial calculations. Closed beta.',
-  applicationName: 'eencyclopedia',
-  authors: [{ name: 'eencyclopedia' }],
-  keywords: [
-    'electronics',
-    'circuits',
-    'KiCad',
-    'schematic',
-    'EE',
-    'analog',
-    'digital',
-    'AI',
-    'engineer',
-  ],
-  openGraph: {
-    type: 'website',
-    siteName: 'eencyclopedia',
-    title: 'eencyclopedia — circuits, fast',
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: new URL(publicEnv.NEXT_PUBLIC_SITE_URL),
+    title: {
+      default: 'eencyclopedia — circuits, fast',
+      template: '%s · eencyclopedia',
+    },
     description:
-      'Upload schematics, search circuits, ask an EE-tuned AI. Closed beta.',
-    url: publicEnv.NEXT_PUBLIC_SITE_URL,
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'eencyclopedia — circuits, fast',
-    description:
-      'Upload schematics, search circuits, ask an EE-tuned AI. Closed beta.',
-  },
-  robots: {
-    // Closed beta: allow indexing of the landing page only once we open up.
-    index: false,
-    follow: false,
-  },
-};
+      'A reference, search, and AI analysis tool for electronic circuits. Upload .kicad_sch files, ask questions, run trivial calculations. Closed beta.',
+    applicationName: 'eencyclopedia',
+    authors: [{ name: 'eencyclopedia' }],
+    keywords: [
+      'electronics',
+      'circuits',
+      'KiCad',
+      'schematic',
+      'EE',
+      'analog',
+      'digital',
+      'AI',
+      'engineer',
+    ],
+    openGraph: {
+      type: 'website',
+      siteName: 'eencyclopedia',
+      title: 'eencyclopedia — circuits, fast',
+      description:
+        'Upload schematics, search circuits, ask an EE-tuned AI. Closed beta.',
+      url: publicEnv.NEXT_PUBLIC_SITE_URL,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'eencyclopedia — circuits, fast',
+      description:
+        'Upload schematics, search circuits, ask an EE-tuned AI. Closed beta.',
+    },
+    robots: {
+      // Closed beta: allow indexing of the landing page only once we open up.
+      index: false,
+      follow: false,
+    },
+    other: {
+      ...Sentry.getTraceData(),
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
