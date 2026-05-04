@@ -71,11 +71,15 @@ const nextConfig = {
 };
 
 module.exports = withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  silent: true,
+  org: 'capistor-technologies-fzco',
+  project: 'sentry-claret-horizon',
+  silent: !process.env.CI,
   widenClientFileUpload: true,
-  hideSourceMaps: true,
-  disableLogger: true,
-  automaticVercelMonitors: true,
+  tunnelRoute: '/monitoring',
+  webpack: {
+    automaticVercelMonitors: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });

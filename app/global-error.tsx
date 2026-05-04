@@ -9,6 +9,7 @@
  * when this fires.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 
 interface Props {
@@ -18,8 +19,7 @@ interface Props {
 
 export default function GlobalError({ error, reset }: Props) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.error('[global-error]', error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
