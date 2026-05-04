@@ -260,7 +260,7 @@ export default async function CircuitPage({ params }: Params) {
           </div>
         </div>
         {svgInline ? (
-          <SchematicViewer svgContent={svgInline} circuitId={params.id} chatHref={`/chat?circuit=${params.id}`} />
+          <SchematicViewer svgContent={svgInline} circuitId={params.id} chatHref={`/chat?circuit=${params.id}`} rawKicadUrl={rawUrl} />
         ) : svgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={svgUrl} alt={`Render of ${title}`} className="block w-full" />

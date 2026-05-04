@@ -20,7 +20,8 @@
       "Bash(git *)",
       "Bash(awk '{print $1}')",
       "mcp__ruflo__terminal_execute",
-      "Bash(grep -E '\\\\.\\(ts|tsx\\)$')"
+      "Bash(grep -E '\\\\.\\(ts|tsx\\)$')",
+      "Bash(npx next *)"
     ]
   },
   "enableAllProjectMcpServers": true,
