@@ -1,20 +1,13 @@
 /**
- * /circuit/[id] — circuit detail.
+ * /circuit/[id] — circuit detail page.
  *
- * RLS does the heavy lifting: `schematics: read public-or-own` policy lets
- * any visitor see public circuits, the owner see their own, and nobody
- * else see private circuits. We rely on `maybeSingle()` returning null in
- * that case and surface a 404 (don't disclose existence).
- *
- * Layout:
- *   - Header: title, owner @username, visibility badge, created date
- *   - Inline SVG render (fetched from svg_url, embedded server-side)
- *   - Description (if any)
- *   - AI summary panel (struct + prose) or pending-state with regenerate
- *
- * Why fetch + inline the SVG instead of <img src=svg_url />: inline gives
- * us currentColor theming + interactive hover hooks. Fallback to <img> only
- * if the fetch fails for some reason.
+ * Sections:
+ *   - Header: title, owner, visibility badge, star button
+ *   - Inline SVG schematic viewer
+ *   - Component index (BOM with LCSC pricing)
+ *   - AI summary
+ *   - DC Simulator
+ *   - Discussion (comments)
  */
 
 import type { Metadata } from 'next';
@@ -25,12 +18,15 @@ import { RegenerateButton } from './regenerate-button';
 import { FavoriteButton } from './favorite-button';
 import { RebuildButton } from './rebuild-button';
 import { SchematicViewer } from './schematic-viewer';
+import { StarButton } from './star-button';
+import { CommentsSection } from './comments-section';
+import { BomPanel } from './bom-panel';
+import { SimPanel } from './sim-panel';
 
 interface Params {
   params: { id: string };
 }
 
-// We don't pre-render circuit pages; they're dynamic per RLS+user.
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
@@ -53,8 +49,6 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function CircuitPage({ params }: Params) {
-  // Cheap UUID sanity — schematics.id is uuid; reject obviously-bad input
-  // before round-tripping to the DB.
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.id)) {
     notFound();
   }
@@ -63,21 +57,17 @@ export default async function CircuitPage({ params }: Params) {
   const { data, error } = await supabase
     .from('schematics')
     .select(
-      'id, owner_id, title, description, visibility, component_count, raw_kicad_url, svg_url, ai_summary, ai_summary_struct, created_at, updated_at',
+      'id, owner_id, title, description, visibility, component_count, raw_kicad_url, svg_url, ai_summary, ai_summary_struct, created_at, updated_at, star_count',
     )
     .eq('id', params.id)
     .maybeSingle();
 
   if (error || !data) notFound();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   const ownerId = (data as { owner_id: string }).owner_id;
   const isOwner = !!user && user.id === ownerId;
 
-  // Fetch the owner's username for the header, ignoring errors (RLS allows
-  // public read of profiles).
   const { data: ownerProfile } = await supabase
     .from('profiles')
     .select('username')
@@ -98,28 +88,33 @@ export default async function CircuitPage({ params }: Params) {
   const svgUrl = (data as { svg_url: string | null }).svg_url;
   const rawUrl = (data as { raw_kicad_url: string | null }).raw_kicad_url;
   const aiSummary = (data as { ai_summary: string | null }).ai_summary;
-  const aiStruct = (data as { ai_summary_struct: Record<string, unknown> | null })
-    .ai_summary_struct;
+  const aiStruct = (data as { ai_summary_struct: Record<string, unknown> | null }).ai_summary_struct;
   const createdAt = (data as { created_at: string }).created_at;
+  const starCount = (data as { star_count: number }).star_count ?? 0;
 
-  // Whether the viewer has favorited this circuit. RLS scopes circuit_favorites
-  // to the viewer's own rows so a `maybeSingle` is enough.
+  // Did the current user star/favorite this circuit?
+  let isStarred = false;
   let isFavorited = false;
   if (user) {
-    const { data: fav } = await supabase
-      .from('circuit_favorites')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .eq('circuit_id', params.id)
-      .maybeSingle();
-    isFavorited = !!fav;
+    const [starRow, favRow] = await Promise.all([
+      supabase
+        .from('circuit_stars')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .eq('schematic_id', params.id)
+        .maybeSingle(),
+      supabase
+        .from('circuit_favorites')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .eq('circuit_id', params.id)
+        .maybeSingle(),
+    ]);
+    isStarred = !!starRow.data;
+    isFavorited = !!favRow.data;
   }
 
-  // If summary is null AND owner is viewing, look up the most recent
-  // ai_calls row tagged to this schematic with ok=false. This surfaces the
-  // error code to the user (AUTH / RATE_LIMIT / TIMEOUT / NETWORK / UNKNOWN /
-  // INVALID_REQUEST / OVERLOADED / UPSTREAM) instead of leaving them to
-  // hunt server logs. RLS allows users to read their own ai_calls rows.
+  // Summary failure code for owner
   let summaryFailure: { code: string; message: string; at: string } | null = null;
   if (!aiSummary && isOwner) {
     const { data: failureRow } = await supabase
@@ -130,42 +125,76 @@ export default async function CircuitPage({ params }: Params) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    const meta = (failureRow as { request_meta?: Record<string, unknown> } | null)
-      ?.request_meta;
-    if (
-      meta &&
-      typeof meta === 'object' &&
-      meta['ok'] === false &&
-      typeof meta['error_code'] === 'string'
-    ) {
+    const meta = (failureRow as { request_meta?: Record<string, unknown> } | null)?.request_meta;
+    if (meta && meta['ok'] === false && typeof meta['error_code'] === 'string') {
       summaryFailure = {
         code: meta['error_code'] as string,
-        message:
-          typeof meta['error_message'] === 'string'
-            ? (meta['error_message'] as string)
-            : '',
-        at: (failureRow as { created_at: string }).created_at,
+        message: typeof meta['error_message'] === 'string' ? (meta['error_message'] as string) : '',
+        at: (failureRow as unknown as { created_at: string }).created_at,
       };
     }
   }
+
+  // Component rows (for BOM + component index)
   const { data: componentRows } = await supabase
     .from('schematic_components')
     .select('designator, value')
     .eq('schematic_id', params.id)
     .order('designator');
-  const componentIndexRows = (componentRows ?? []) as Array<{
+  const bomRows = (componentRows ?? []) as Array<{
     designator?: string | null;
     value?: string | null;
   }>;
 
-  // Fetch the SVG content server-side so we can inline it. Fall back to <img>.
+  // Comments — top-level with one level of replies
+  const { data: commentData } = await supabase
+    .from('circuit_comments')
+    .select(`
+      id, user_id, content, created_at, parent_id,
+      profiles:user_id (username)
+    `)
+    .eq('schematic_id', params.id)
+    .order('created_at', { ascending: true });
+
+  type CommentRow = {
+    id: string;
+    user_id: string;
+    content: string;
+    created_at: string;
+    parent_id: string | null;
+    profiles: { username: string } | null;
+  };
+
+  const allComments = (commentData ?? []) as CommentRow[];
+  const topComments = allComments.filter((c) => !c.parent_id);
+  const replyMap = new Map<string, CommentRow[]>();
+  for (const c of allComments.filter((c) => c.parent_id)) {
+    const arr = replyMap.get(c.parent_id!) ?? [];
+    arr.push(c);
+    replyMap.set(c.parent_id!, arr);
+  }
+  const commentsWithReplies = topComments.map((c) => ({
+    id: c.id,
+    user_id: c.user_id,
+    content: c.content,
+    created_at: c.created_at,
+    username: c.profiles?.username ?? null,
+    replies: (replyMap.get(c.id) ?? []).map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      content: r.content,
+      created_at: r.created_at,
+      username: r.profiles?.username ?? null,
+    })),
+  }));
+
+  // Inline SVG
   let svgInline: string | null = null;
   if (svgUrl) {
     try {
       const res = await fetch(svgUrl, { cache: 'no-store' });
       if (res.ok) {
         const text = await res.text();
-        // Sanity: must look like an SVG. Reject anything else without inlining.
         if (text.trim().startsWith('<svg')) svgInline = text;
       }
     } catch {
@@ -173,16 +202,21 @@ export default async function CircuitPage({ params }: Params) {
     }
   }
 
+  const bomPanelRows = bomRows.map((r) => ({
+    designator: typeof r.designator === 'string' ? r.designator : '?',
+    value: typeof r.value === 'string' ? r.value : '',
+    mpn: null,
+  }));
+
   return (
     <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-3xl flex-col px-6 py-12">
+      {/* Header */}
       <header className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <div className="flex items-center gap-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
           <span>{visibility}</span>
           <span>·</span>
-          <span>
-            {componentCount} component{componentCount === 1 ? '' : 's'}
-          </span>
+          <span>{componentCount} component{componentCount === 1 ? '' : 's'}</span>
           <span>·</span>
           <span>{new Date(createdAt).toLocaleDateString()}</span>
         </div>
@@ -198,156 +232,74 @@ export default async function CircuitPage({ params }: Params) {
           ) : (
             <span className="opacity-60">unknown</span>
           )}
-          {isOwner ? (
+          {isOwner && (
             <span className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider">
               yours
             </span>
-          ) : null}
+          )}
         </div>
-        {user ? (
-          <FavoriteButton circuitId={params.id} initialFavorited={isFavorited} />
-        ) : null}
+        <div className="flex items-center gap-2">
+          {user && <StarButton circuitId={params.id} initialStarred={isStarred} initialCount={starCount} />}
+          {user && <FavoriteButton circuitId={params.id} initialFavorited={isFavorited} />}
+        </div>
       </div>
 
-      {description ? (
-        <p className="mt-6 max-w-prose text-sm leading-relaxed text-foreground">
-          {description}
-        </p>
-      ) : null}
+      {description && (
+        <p className="mt-6 max-w-prose text-sm leading-relaxed text-foreground">{description}</p>
+      )}
 
-      {/* Render */}
+      {/* Schematic viewer */}
       <section className="mt-8 rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Schematic
-          </h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Schematic</h2>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground opacity-60">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground opacity-60">
               hover to inspect · click to ask AI
             </span>
-            {isOwner ? <RebuildButton circuitId={params.id} /> : null}
+            {isOwner && <RebuildButton circuitId={params.id} />}
           </div>
         </div>
         {svgInline ? (
-          // SchematicViewer is a 'use client' component that adds rich pointer
-          // tooltips. The SVG itself already has CSS hover rules as a fallback.
-          // svgContent is produced by lib/kicad/render.ts which XML-escapes all
-          // user-supplied strings — safe to set as innerHTML.
-          <SchematicViewer
-            svgContent={svgInline}
-            circuitId={params.id}
-            chatHref={`/chat?circuit=${params.id}`}
-          />
+          <SchematicViewer svgContent={svgInline} circuitId={params.id} chatHref={`/chat?circuit=${params.id}`} />
         ) : svgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={svgUrl} alt={`Render of ${title}`} className="block w-full" />
         ) : (
           <p className="text-sm text-muted-foreground">No render available.</p>
         )}
-        <div className="mt-3 flex flex-wrap gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
-          {user ? (
-            <Link
-              href={`/chat?circuit=${params.id}`}
-              className="font-mono underline hover:text-foreground"
-            >
+        <div className="mt-3 flex flex-wrap gap-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          {user && (
+            <Link href={`/chat?circuit=${params.id}`} className="underline hover:text-foreground">
               ↗ ask AI about this circuit
             </Link>
-          ) : null}
-          {rawUrl ? (
+          )}
+          {rawUrl && (
             <>
-              <a
-                href={rawUrl}
-                className="font-mono underline hover:text-foreground"
-                download
-              >
-                ↓ original .kicad_sch
-              </a>
-              {/* Same dir, deterministic suffix — see lib/circuits/actions.ts */}
-              <a
-                href={rawUrl.replace(/\.kicad_sch$/, '.eencyc.sexp')}
-                className="font-mono underline hover:text-foreground"
-                download
-              >
-                ↓ canonical .eencyc.sexp
-              </a>
-              <a
-                href={rawUrl.replace(/\.kicad_sch$/, '.eencyc.json')}
-                className="font-mono underline hover:text-foreground"
-                target="_blank"
-                rel="noreferrer"
-              >
-                ↗ parsed .eencyc.json
-              </a>
+              <a href={rawUrl} className="underline hover:text-foreground" download>↓ .kicad_sch</a>
+              <a href={rawUrl.replace(/\.kicad_sch$/, '.eencyc.sexp')} className="underline hover:text-foreground" download>↓ .eencyc.sexp</a>
             </>
-          ) : null}
-          {svgUrl ? (
-            <a
-              href={svgUrl}
-              className="font-mono underline hover:text-foreground"
-              target="_blank"
-              rel="noreferrer"
-            >
-              ↗ open SVG
-            </a>
-          ) : null}
+          )}
+          {svgUrl && (
+            <a href={svgUrl} className="underline hover:text-foreground" target="_blank" rel="noreferrer">↗ SVG</a>
+          )}
         </div>
       </section>
 
-      <section className="mt-8 rounded-lg border border-border bg-card p-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Component index
-          </h2>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {componentIndexRows.length} row{componentIndexRows.length === 1 ? '' : 's'}
-          </span>
-        </div>
-        {componentIndexRows.length > 0 ? (
-          <ul className="mt-3 space-y-1 text-sm">
-            {componentIndexRows.map((row, i) => {
-              const designator =
-                row && typeof row.designator === 'string' ? row.designator : '?';
-              const value =
-                row && typeof row.value === 'string' && row.value.length > 0
-                  ? row.value
-                  : '—';
-              return (
-                <li
-                  key={`${designator}-${i}`}
-                  className="grid grid-cols-[7rem_1fr] gap-3 border-b border-border/60 py-1 last:border-0"
-                >
-                  <span className="font-mono text-xs text-foreground">{designator}</span>
-                  <span className="text-sm text-muted-foreground">{value}</span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
-            {isOwner
-              ? 'No component rows stored yet. Use rebuild above to refresh derived artifacts and populate them.'
-              : 'No component rows stored for this circuit yet.'}
-          </p>
-        )}
-      </section>
+      {/* BOM + LCSC Pricing */}
+      <BomPanel rows={bomPanelRows} />
 
       {/* AI summary */}
       <section className="mt-8 rounded-lg border border-border bg-card p-4">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            AI summary
-          </h2>
-          {isOwner ? <RegenerateButton circuitId={params.id} /> : null}
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">AI Summary</h2>
+          {isOwner && <RegenerateButton circuitId={params.id} />}
         </div>
         {aiSummary ? (
           <>
             <p className="mt-3 text-sm leading-relaxed text-foreground">{aiSummary}</p>
-            {aiStruct ? <SummaryStruct s={aiStruct} /> : null}
+            {aiStruct && <SummaryStruct s={aiStruct} />}
           </>
         ) : summaryFailure ? (
-          // Owner-visible: show the most recent error code and a snippet of
-          // the upstream message. Hint depends on the code so the user
-          // doesn't have to read server logs.
           <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
             <p className="font-mono uppercase tracking-wider text-destructive">
               {summaryFailure.code} · {new Date(summaryFailure.at).toLocaleString()}
@@ -356,58 +308,58 @@ export default async function CircuitPage({ params }: Params) {
               {summaryFailure.message || 'No details captured.'}
             </p>
             <p className="mt-2 text-muted-foreground">
-              {summaryFailure.code === 'AUTH'
-                ? 'ANTHROPIC_API_KEY in .env.local is missing or invalid. Restart `pnpm dev` after fixing.'
-                : summaryFailure.code === 'RATE_LIMIT'
-                  ? 'Anthropic rate-limited the request. Wait a minute and click Regenerate.'
-                  : summaryFailure.code === 'TIMEOUT'
-                    ? 'Anthropic took longer than 12s. Click Regenerate to retry.'
-                    : summaryFailure.code === 'OVERLOADED'
-                      ? 'Anthropic temporarily overloaded. Click Regenerate in a moment.'
-                      : summaryFailure.code === 'NETWORK'
-                        ? 'Network error reaching api.anthropic.com. Check your connection.'
-                        : 'Click Regenerate to retry.'}
+              {summaryFailure.code === 'AUTH' ? 'ANTHROPIC_API_KEY missing or invalid.'
+                : summaryFailure.code === 'RATE_LIMIT' ? 'Rate-limited. Wait a minute and click Regenerate.'
+                : summaryFailure.code === 'TIMEOUT' ? 'Timed out. Click Regenerate to retry.'
+                : 'Click Regenerate to retry.'}
             </p>
           </div>
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">
-            Summary not generated yet. {isOwner ? 'Click regenerate above.' : 'Check back in a moment.'}
+            Summary not generated yet.{isOwner ? ' Click Regenerate above.' : ''}
           </p>
         )}
       </section>
 
+      {/* DC Simulator */}
+      <SimPanel circuitId={params.id} />
+
+      {/* Comments */}
+      <CommentsSection
+        circuitId={params.id}
+        comments={commentsWithReplies}
+        currentUserId={user?.id ?? null}
+      />
+
       <footer className="mt-auto pt-12 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        AI-assisted output. Verify against datasheets and standards before
-        fabrication.
+        AI-assisted output. Verify against datasheets and standards before fabrication.
       </footer>
     </main>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Structured-summary renderer
+// Structured summary renderer
 // ---------------------------------------------------------------------------
 
 function SummaryStruct({ s }: { s: Record<string, unknown> }) {
-  const topology = typeof s['topology'] === 'string' ? (s['topology'] as string) : null;
-  const intent = typeof s['intent'] === 'string' ? (s['intent'] as string) : null;
-  const category = typeof s['category'] === 'string' ? (s['category'] as string) : null;
-  const rails = Array.isArray(s['rails']) ? (s['rails'] as unknown[]).filter(Boolean) : [];
-  const concerns = Array.isArray(s['concerns'])
-    ? (s['concerns'] as unknown[]).filter(Boolean)
-    : [];
-  const designNotes = typeof s['design_notes'] === 'string' ? (s['design_notes'] as string) : null;
+  const topology = typeof s['topology'] === 'string' ? s['topology'] : null;
+  const intent = typeof s['intent'] === 'string' ? s['intent'] : null;
+  const category = typeof s['category'] === 'string' ? s['category'] : null;
+  const rails = Array.isArray(s['rails']) ? s['rails'].filter(Boolean) : [];
+  const concerns = Array.isArray(s['concerns']) ? s['concerns'].filter(Boolean) : [];
+  const designNotes = typeof s['design_notes'] === 'string' ? s['design_notes'] : null;
   const keyComponents = Array.isArray(s['key_components'])
     ? (s['key_components'] as Array<Record<string, unknown>>)
     : [];
 
   return (
     <dl className="mt-4 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-[max-content_1fr]">
-      {topology ? <Row label="Topology" value={topology} /> : null}
-      {intent ? <Row label="Intent" value={intent} /> : null}
-      {category ? <Row label="Category" value={category} /> : null}
-      {rails.length > 0 ? <Row label="Rails" value={rails.map(String).join(', ')} /> : null}
-      {keyComponents.length > 0 ? (
+      {topology && <Row label="Topology" value={topology} />}
+      {intent && <Row label="Intent" value={intent} />}
+      {category && <Row label="Category" value={category} />}
+      {rails.length > 0 && <Row label="Rails" value={rails.map(String).join(', ')} />}
+      {keyComponents.length > 0 && (
         <>
           <dt className="font-mono uppercase tracking-wider text-muted-foreground">Key components</dt>
           <dd className="text-foreground">
@@ -423,20 +375,18 @@ function SummaryStruct({ s }: { s: Record<string, unknown> }) {
             </ul>
           </dd>
         </>
-      ) : null}
-      {concerns.length > 0 ? (
+      )}
+      {concerns.length > 0 && (
         <>
           <dt className="font-mono uppercase tracking-wider text-muted-foreground">Concerns</dt>
           <dd className="text-foreground">
             <ul className="list-disc space-y-0.5 pl-4">
-              {concerns.map((c, i) => (
-                <li key={i}>{String(c)}</li>
-              ))}
+              {concerns.map((c, i) => <li key={i}>{String(c)}</li>)}
             </ul>
           </dd>
         </>
-      ) : null}
-      {designNotes ? <Row label="Design notes" value={designNotes} /> : null}
+      )}
+      {designNotes && <Row label="Design notes" value={designNotes} />}
     </dl>
   );
 }

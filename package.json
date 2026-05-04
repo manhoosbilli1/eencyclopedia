@@ -25,12 +25,14 @@
     "db:types": "supabase gen types typescript --linked > lib/supabase/database.types.ts"
   },
   "dependencies": {
+    "@flags-sdk/posthog": "^0.2.2",
     "@huggingface/transformers": "^4.2.0",
     "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
+    "flags": "^4.0.6",
     "next": "^14.2.35",
     "pdf-parse": "^1.1.4",
     "posthog-js": "^1.372.6",

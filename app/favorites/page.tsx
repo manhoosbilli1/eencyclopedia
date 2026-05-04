@@ -56,7 +56,7 @@ export default async function FavoritesPage() {
   const favoriteRows = (favs ?? []) as FavoriteRow[];
   const ids = favoriteRows.map((f) => f.circuit_id);
 
-  let circuitsById = new Map<string, CircuitRow>();
+  const circuitsById = new Map<string, CircuitRow>();
   if (ids.length > 0) {
     const { data: circuits } = await supabase
       .from('schematics')

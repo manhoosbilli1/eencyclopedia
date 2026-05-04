@@ -45,6 +45,37 @@ export default async function HomePage() {
       : { href: '/circuit/new', label: 'Upload a circuit' };
   }
 
+  // Popular circuits feed — top 6 public by star_count then recency
+  const { data: popularRaw } = await supabase
+    .from('schematics')
+    .select('id, title, description, star_count, component_count, created_at, owner_id, thumbnail_url')
+    .eq('visibility', 'public')
+    .order('star_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  type FeedItem = {
+    id: string; title: string; description: string | null;
+    star_count: number; component_count: number;
+    created_at: string; owner_id: string; thumbnail_url: string | null;
+    username?: string | null;
+  };
+
+  const popular = (popularRaw ?? []) as FeedItem[];
+
+  // Fetch usernames for feed items
+  if (popular.length > 0) {
+    const ownerIds = [...new Set(popular.map((p) => p.owner_id))];
+    const { data: profileRows } = await supabase
+      .from('profiles')
+      .select('id, username')
+      .in('id', ownerIds);
+    const profileMap = new Map((profileRows ?? []).map((p) => [(p as {id:string;username:string}).id, (p as {username:string}).username]));
+    for (const item of popular) {
+      item.username = profileMap.get(item.owner_id) ?? null;
+    }
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-6">
       {/* HERO */}
@@ -96,6 +127,71 @@ export default async function HomePage() {
         {/* Hero art — animated circuit */}
         <HeroArt />
       </section>
+
+      {/* POPULAR CIRCUITS FEED */}
+      {popular.length > 0 && (
+        <section className="border-t border-border py-20" id="feed">
+          <SectionHeader
+            eyebrow="Community circuits"
+            title="What engineers are building."
+            blurb="Top-starred public circuits. Star one to save it to your library."
+          />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {popular.map((item) => (
+              <Link
+                key={item.id}
+                href={`/circuit/${item.id}`}
+                className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/25"
+              >
+                {item.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.thumbnail_url}
+                    alt=""
+                    className="aspect-[4/3] w-full rounded-md border border-border object-cover"
+                  />
+                ) : (
+                  <div
+                    className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-border bg-muted font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+                  >
+                    no preview
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-sm font-semibold tracking-tight group-hover:text-foreground">
+                    {item.title}
+                  </h3>
+                  {item.description && (
+                    <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+                <div className="mt-auto flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    {item.username && <span>@{item.username}</span>}
+                    <span>· {item.component_count} comp{item.component_count !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="flex items-center gap-1" style={{ color: ACCENT }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                    </svg>
+                    <span>{item.star_count}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-6 text-center">
+            <Link
+              href="/library"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground"
+            >
+              Browse all circuits →
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* WHY IT EXISTS */}
       <section className="border-t border-border py-20" id="why">

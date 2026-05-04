@@ -586,3 +586,122 @@ function num(v: number): string {
   if (Number.isInteger(v)) return String(v);
   return v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
 }
+
+// ---------------------------------------------------------------------------
+// Round-trip: parse canonical S-exp back to CanonicalSchematic
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-parse the canonical eencyc S-exp stored in `schematics.sexp` back into
+ * a `CanonicalSchematic`. This is the inverse of `toCanonicalSExp`.
+ *
+ * The canonical format carries components + nets but NOT geometry (wires,
+ * junctions, labels) — those are renderer-only and not persisted. The returned
+ * `geom` fields are empty arrays.
+ *
+ * Pin `local` and `world` coordinates are set to zero — they are not stored
+ * in the canonical S-exp. Callers that need geometry must use the renderer
+ * pipeline instead.
+ */
+export function parseCanonicalSExp(src: string): CanonicalSchematic {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { parse } = require('./sexp') as typeof import('./sexp');
+  const ast = parse(src);
+
+  if (ast.type !== 'list') throw new Error('Expected a list at root');
+
+  const items = ast.items;
+  const components: CanonicalComponent[] = [];
+  const nets: string[] = [];
+
+  for (const item of items) {
+    if (item.type !== 'list') continue;
+    const tag = item.items[0];
+    if (!tag || tag.type !== 'atom') continue;
+
+    if (tag.value === 'component') {
+      components.push(parseComponentItem(item.items.slice(1)));
+    } else if (tag.value === 'net') {
+      const v = item.items[1];
+      if (v && v.type === 'atom') nets.push(v.value);
+    }
+  }
+
+  return {
+    version: 1,
+    units: 'mm',
+    components,
+    nets,
+    geom: { wires: [], junctions: [], labels: [] },
+  };
+}
+
+type SExpList = import('./sexp').List;
+type SExpItem = import('./sexp').SExp;
+
+function parseComponentItem(attrs: SExpItem[]): CanonicalComponent {
+  let designator = '';
+  let mpn: string | null = null;
+  let value = '';
+  let libId = '';
+  let posX = 0, posY = 0, rot = 0;
+  const pins: CanonicalComponent['pins'] = [];
+
+  for (const attr of attrs) {
+    if (attr.type !== 'list') continue;
+    const tag = attr.items[0];
+    if (!tag || tag.type !== 'atom') continue;
+
+    const get = (i: number): string => {
+      const n = attr.items[i];
+      return n && n.type === 'atom' ? n.value : '';
+    };
+
+    switch (tag.value) {
+      case 'designator': designator = get(1); break;
+      case 'lib_id':     libId = get(1); break;
+      case 'mpn':        mpn = get(1) || null; break;
+      case 'value':      value = get(1); break;
+      case 'pos':
+        posX = parseFloat(get(1)) || 0;
+        posY = parseFloat(get(2)) || 0;
+        break;
+      case 'rot':        rot = parseFloat(get(1)) || 0; break;
+      case 'pin': {
+        const pinNum = get(1);
+        let net = 'unknown';
+        for (const sub of (attr as SExpList).items.slice(2)) {
+          if (sub.type === 'list') {
+            const st = sub.items[0];
+            if (st && st.type === 'atom' && st.value === 'net') {
+              const nv = sub.items[1];
+              if (nv && nv.type === 'atom') net = nv.value;
+            }
+          }
+        }
+        pins.push({ number: pinNum, name: pinNum, net, local: { x: 0, y: 0 }, world: { x: 0, y: 0 } });
+        break;
+      }
+    }
+  }
+
+  // If lib_id wasn't stored (older format), try to derive it from designator prefix
+  if (!libId) libId = guessLibIdFromDesignator(designator);
+
+  return {
+    designator, mpn, value, libId,
+    pos: { x: posX, y: posY },
+    rot, mirror: 'none', pins,
+  };
+}
+
+function guessLibIdFromDesignator(des: string): string {
+  const prefix = des.replace(/\d+$/, '').toUpperCase();
+  const map: Record<string, string> = {
+    R: 'Device:R', C: 'Device:C', L: 'Device:L',
+    D: 'Device:D', Q: 'Device:Q_NPN', U: 'Device:U',
+    J: 'Connector:Conn_01x01', SW: 'Device:SW_Push',
+    F: 'Device:Fuse', Y: 'Device:Crystal',
+  };
+  return map[prefix] ?? 'Device:Unknown';
+}

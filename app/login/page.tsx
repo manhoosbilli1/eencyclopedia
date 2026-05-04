@@ -60,7 +60,7 @@ export default async function LoginPage({
           </div>
 
           <h1 style={{ fontSize: '22px', fontWeight: '600', letterSpacing: '-0.01em', margin: '0 0 6px' }}>Sign in</h1>
-          <p style={{ color: 'var(--muted-fg)', fontSize: '14px', margin: '0 0 22px' }}>We'll email you a magic link. No passwords.</p>
+          <p style={{ color: 'var(--muted-fg)', fontSize: '14px', margin: '0 0 22px' }}>We&apos;ll email you a magic link. No passwords.</p>
 
           <LoginForm next={searchParams.next} />
 

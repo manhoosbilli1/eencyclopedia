@@ -104,6 +104,10 @@ const ServerEnvSchema = z.object({
 
   // Observability (optional)
   SENTRY_AUTH_TOKEN: optionalString(),
+
+  // PostHog Flags SDK (server-side feature flags)
+  POSTHOG_PERSONAL_API_KEY: optionalString(),
+  FLAGS_SECRET: optionalString(),
   LANGFUSE_PUBLIC_KEY: optionalString(),
   LANGFUSE_SECRET_KEY: optionalString(),
   LANGFUSE_HOST: optionalUrl(),

@@ -233,7 +233,7 @@ function CircuitCard({ c, owner }: { c: CircuitRow; owner: 'self' | 'other' }) {
           </div>
           <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background text-[9px]">
-              {(c.owner_username ?? 'u')[0].toUpperCase()}
+              {(c.owner_username ?? 'u')[0]!.toUpperCase()}
             </span>
             <span>{owner === 'other' && c.owner_username ? `@${c.owner_username}` : '@you'}</span>
             <span>·</span>
@@ -257,5 +257,5 @@ async function hydrate(supabase: any, rows: CircuitRow[]): Promise<CircuitRow[]>
   if (ownerIds.length === 0) return rows;
   const { data } = await supabase.from('profiles').select('id, username').in('id', ownerIds);
   const byId = new Map(data?.map((p: any) => [p.id, p.username]) || []);
-  return rows.map((r) => ({ ...r, owner_username: byId.get(r.owner_id) ?? null }));
+  return rows.map((r) => ({ ...r, owner_username: (byId.get(r.owner_id) as string | undefined) ?? null }));
 }

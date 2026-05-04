@@ -47,8 +47,12 @@ interface CardSpec {
   /**
    * Compute the result. Receives a record of parsed numbers (NaN for empty
    * optional fields) and returns either a CalcResult or throws.
+   *
+   * Values are `number | undefined` because Record index access is technically
+   * possibly-undefined in strict TypeScript. Compute functions should guard
+   * or cast since required fields are validated before this is called.
    */
-  compute: (values: Record<string, number>) => CalcResult;
+  compute: (values: Record<string, number | undefined>) => CalcResult;
 }
 
 const CARDS: CardSpec[] = [
@@ -82,7 +86,8 @@ const CARDS: CardSpec[] = [
       { name: 'R1', label: 'R1 (ohms)', placeholder: '10k' },
       { name: 'R2', label: 'R2 (ohms)', placeholder: '10k' },
     ],
-    compute: ({ Vin, R1, R2 }) => voltageDivider({ Vin, R1, R2 }),
+    // Required fields are validated before compute is called; ! is safe here.
+    compute: ({ Vin, R1, R2 }) => voltageDivider({ Vin: Vin!, R1: R1!, R2: R2! }),
   },
   {
     id: 'currentDivider',
@@ -93,7 +98,7 @@ const CARDS: CardSpec[] = [
       { name: 'R1', label: 'R1 (ohms)', placeholder: '1k' },
       { name: 'R2', label: 'R2 (ohms)', placeholder: '4.7k' },
     ],
-    compute: ({ Itotal, R1, R2 }) => currentDivider({ Itotal, R1, R2 }),
+    compute: ({ Itotal, R1, R2 }) => currentDivider({ Itotal: Itotal!, R1: R1!, R2: R2! }),
   },
   {
     id: 'rcTau',
@@ -103,7 +108,7 @@ const CARDS: CardSpec[] = [
       { name: 'R', label: 'R (ohms)', placeholder: '10k' },
       { name: 'C', label: 'C (farads)', placeholder: '100n' },
     ],
-    compute: ({ R, C }) => rcTau({ R, C }),
+    compute: ({ R, C }) => rcTau({ R: R!, C: C! }),
   },
   {
     id: 'rlTau',
@@ -113,7 +118,7 @@ const CARDS: CardSpec[] = [
       { name: 'R', label: 'R (ohms)', placeholder: '10' },
       { name: 'L', label: 'L (henries)', placeholder: '1m' },
     ],
-    compute: ({ R, L }) => rlTau({ R, L }),
+    compute: ({ R, L }) => rlTau({ R: R!, L: L! }),
   },
   {
     id: 'ledResistor',
@@ -124,7 +129,7 @@ const CARDS: CardSpec[] = [
       { name: 'Vf', label: 'V_f (volts)', placeholder: '2.0' },
       { name: 'If', label: 'I_f (amps)', placeholder: '20m' },
     ],
-    compute: ({ Vsupply, Vf, If }) => ledResistor({ Vsupply, Vf, If }),
+    compute: ({ Vsupply, Vf, If }) => ledResistor({ Vsupply: Vsupply!, Vf: Vf!, If: If! }),
   },
   {
     id: 'invertingGain',
@@ -134,17 +139,19 @@ const CARDS: CardSpec[] = [
       { name: 'Rf', label: 'R_f (ohms)', placeholder: '100k' },
       { name: 'Rin', label: 'R_in (ohms)', placeholder: '10k' },
     ],
-    compute: ({ Rf, Rin }) => opampGain.inverting({ Rf, Rin }),
+    // opampGain.inverting takes positional args (Rf, Rin), not an object.
+    compute: ({ Rf, Rin }) => opampGain.inverting(Rf!, Rin!),
   },
   {
     id: 'nonInvertingGain',
     title: 'Op-amp non-inverting gain',
-    blurb: 'A = 1 + R_f / R_in.',
+    blurb: 'A = 1 + R_f / R_g.',
     fields: [
       { name: 'Rf', label: 'R_f (ohms)', placeholder: '100k' },
-      { name: 'Rin', label: 'R_in (ohms)', placeholder: '10k' },
+      { name: 'Rg', label: 'R_g (ohms)', placeholder: '10k' },
     ],
-    compute: ({ Rf, Rin }) => opampGain.nonInverting({ Rf, Rin }),
+    // opampGain.nonInverting takes positional args (Rf, Rg), not an object.
+    compute: ({ Rf, Rg }) => opampGain.nonInverting(Rf!, Rg!),
   },
   {
     id: 'Xc',
@@ -154,7 +161,8 @@ const CARDS: CardSpec[] = [
       { name: 'f', label: 'f (Hz)', placeholder: '1k' },
       { name: 'C', label: 'C (farads)', placeholder: '100n' },
     ],
-    compute: ({ f, C }) => reactance.Xc({ f, C }),
+    // reactance.Xc takes positional args (f, C), not an object.
+    compute: ({ f, C }) => reactance.Xc(f!, C!),
   },
   {
     id: 'Xl',
@@ -164,7 +172,8 @@ const CARDS: CardSpec[] = [
       { name: 'f', label: 'f (Hz)', placeholder: '1k' },
       { name: 'L', label: 'L (henries)', placeholder: '1m' },
     ],
-    compute: ({ f, L }) => reactance.Xl({ f, L }),
+    // reactance.Xl takes positional args (f, L), not an object.
+    compute: ({ f, L }) => reactance.Xl(f!, L!),
   },
   {
     id: 'resonance',
@@ -174,7 +183,7 @@ const CARDS: CardSpec[] = [
       { name: 'L', label: 'L (henries)', placeholder: '10u' },
       { name: 'C', label: 'C (farads)', placeholder: '100n' },
     ],
-    compute: ({ L, C }) => resonance({ L, C }),
+    compute: ({ L, C }) => resonance({ L: L!, C: C! }),
   },
   {
     id: 'cutoffFreq',
@@ -184,7 +193,7 @@ const CARDS: CardSpec[] = [
       { name: 'R', label: 'R (ohms)', placeholder: '10k' },
       { name: 'C', label: 'C (farads)', placeholder: '100n' },
     ],
-    compute: ({ R, C }) => cutoffFreq({ R, C }),
+    compute: ({ R, C }) => cutoffFreq({ R: R!, C: C! }),
   },
 ];
 

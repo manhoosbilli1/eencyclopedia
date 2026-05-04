@@ -33,7 +33,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '5mb',
     },
-    serverComponentsExternalPackages: ['pdf-parse'],
+    serverComponentsExternalPackages: ['pdf-parse', '@huggingface/transformers', 'onnxruntime-node'],
     instrumentationHook: true,
   },
   images: {
@@ -57,6 +57,16 @@ const nextConfig = {
   },
   async redirects() {
     return [];
+  },
+  webpack(config, { isServer }) {
+    if (isServer) {
+      // onnxruntime-node ships platform-specific .node binaries that webpack
+      // cannot parse. Externalise them so Node.js loads them natively at runtime.
+      const existing = config.externals ?? [];
+      const arr = Array.isArray(existing) ? existing : [existing];
+      config.externals = [...arr, 'onnxruntime-node', '@huggingface/transformers'];
+    }
+    return config;
   },
 };
 

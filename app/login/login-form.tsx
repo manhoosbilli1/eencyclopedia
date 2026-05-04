@@ -50,7 +50,7 @@ export function LoginForm({ next }: { next?: string }) {
             placeholder="you@domain.com"
           />
         </div>
-        <div className="help">We'll never spam. One-tap unsubscribe on every email.</div>
+        <div className="help">We&apos;ll never spam. One-tap unsubscribe on every email.</div>
       </div>
 
       <SubmitButton />

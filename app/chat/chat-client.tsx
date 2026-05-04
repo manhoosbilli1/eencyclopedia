@@ -114,8 +114,8 @@ export function ChatClient({ activeCircuit, initialQuestion }: ChatClientProps) 
           {messages.length === 0 ? (
             <div className="max-w-2xl">
               <p className="text-sm text-muted-foreground">
-                Try a circuit-level question like "why is this LED node called D1_ANODE",
-                "review this regulator path", or "what happens to cutoff if I double C".
+                Try a circuit-level question like &quot;why is this LED node called D1_ANODE&quot;,
+                &quot;review this regulator path&quot;, or &quot;what happens to cutoff if I double C&quot;.
               </p>
             </div>
           ) : null}

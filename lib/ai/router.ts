@@ -22,8 +22,7 @@ export interface RouteDecision {
   estimatedComplexity: 'low' | 'medium' | 'high';
 }
 
-export interface CircuitPromptContext
-  extends NonNullable<SystemPromptCtx['circuitSummary']> {}
+export type CircuitPromptContext = NonNullable<SystemPromptCtx['circuitSummary']>;
 
 export interface CalculatorInvocation {
   tool: CalculatorTool;
