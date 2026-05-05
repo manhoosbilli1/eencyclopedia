@@ -91,6 +91,10 @@ function snap(v: number): number {
   return Math.round(v / GRID) * GRID;
 }
 
+function snapTo(v: number, gs: number): number {
+  return Math.round(v / gs) * gs;
+}
+
 function dist(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -674,8 +678,12 @@ export function SchematicEditor({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Grid size (configurable)
+  const [gridSize, setGridSize] = useState(2.54);
+
   // Track mouse-inside-canvas for keyboard capture
   const mouseInCanvasRef = useRef(false);
+  const [inCanvas, setInCanvas] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Coordinate helpers
@@ -973,7 +981,7 @@ export function SchematicEditor({
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       const raw = screenToWorld(e.clientX, e.clientY);
-      const snappedGrid = { x: snap(raw.x), y: snap(raw.y) };
+      const snappedGrid = { x: snapTo(raw.x, gridSize), y: snapTo(raw.y, gridSize) };
       setCursorWorld(snappedGrid);
 
       // Pan
@@ -1019,8 +1027,8 @@ export function SchematicEditor({
         for (const id of dragRef.current.compIds) {
           const startPos = dragRef.current.startPositions.get(id);
           if (!startPos) continue;
-          const nx = snap(startPos.x + delta.x);
-          const ny = snap(startPos.y + delta.y);
+          const nx = snapTo(startPos.x + delta.x, gridSize);
+          const ny = snapTo(startPos.y + delta.y, gridSize);
           moves.push({ id, x: nx, y: ny });
           oldPositions.set(id, startPos);
           newPositions.set(id, { x: nx, y: ny });
@@ -1057,7 +1065,7 @@ export function SchematicEditor({
         return;
       }
     },
-    [screenToWorld, wireIP, mode, state, dispatch, wireUpdatesForMove],
+    [screenToWorld, wireIP, mode, state, dispatch, wireUpdatesForMove, gridSize],
   );
 
   // ---------------------------------------------------------------------------
@@ -1130,7 +1138,7 @@ export function SchematicEditor({
       if (panRef.current) return;
 
       const raw = screenToWorld(e.clientX, e.clientY);
-      const snappedGrid = { x: snap(raw.x), y: snap(raw.y) };
+      const snappedGrid = { x: snapTo(raw.x, gridSize), y: snapTo(raw.y, gridSize) };
 
       if (mode === 'wire') {
         const snapped = findSnapPoint(raw, state) ?? snappedGrid;
@@ -1211,7 +1219,7 @@ export function SchematicEditor({
         setEditing(null);
       }
     },
-    [mode, wireIP, state, placingLibId, placingValue, placingPrefix, dispatch, screenToWorld],
+    [mode, wireIP, state, placingLibId, placingValue, placingPrefix, dispatch, screenToWorld, gridSize],
   );
 
   // ---------------------------------------------------------------------------
@@ -1332,6 +1340,7 @@ export function SchematicEditor({
       }
 
       if (e.key === 'Escape') {
+        if (!mouseInCanvasRef.current) return;
         setWireIP(null);
         setGhostPos(null);
         setTextPopup(null);
@@ -1418,6 +1427,9 @@ export function SchematicEditor({
         return;
       }
 
+      // Mode shortcuts — only fire when mouse is inside canvas
+      if (!mouseInCanvasRef.current) return;
+
       // Mode shortcuts (KiCad-compatible)
       if (e.key === 's' && !e.ctrlKey && !e.shiftKey) setMode('select');
       if (e.key === 'w' && !e.ctrlKey) { e.preventDefault(); setMode('wire'); }
@@ -1490,10 +1502,11 @@ export function SchematicEditor({
   // Cursor style
   // ---------------------------------------------------------------------------
 
-  const cursorStyle =
+  const cursorStyle: string =
+    spacePanRef.current ? 'grab' :
+    !inCanvas ? 'default' :
     mode === 'wire' || mode === 'no_connect' ? 'crosshair' :
     mode === 'place' || mode === 'text' ? 'cell' :
-    spacePanRef.current ? 'grab' :
     'default';
 
   // ---------------------------------------------------------------------------
@@ -1629,6 +1642,8 @@ export function SchematicEditor({
           onAlign={alignSelected}
           onSave={handleSave}
           onDownload={onDownload ? () => onDownload(state) : undefined}
+          gridSize={gridSize}
+          onGridSizeChange={setGridSize}
         />
       )}
 
@@ -1637,8 +1652,18 @@ export function SchematicEditor({
         ref={svgRef}
         className="w-full flex-1 select-none"
         style={{ background: COLOR.canvas, cursor: cursorStyle, minHeight: 420 }}
-        onMouseEnter={() => { mouseInCanvasRef.current = true; }}
-        onMouseLeave={() => { mouseInCanvasRef.current = false; }}
+        onMouseEnter={() => {
+          mouseInCanvasRef.current = true;
+          setInCanvas(true);
+          const active = document.activeElement;
+          if (active instanceof HTMLElement && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            active.blur();
+          }
+        }}
+        onMouseLeave={() => {
+          mouseInCanvasRef.current = false;
+          setInCanvas(false);
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1654,10 +1679,10 @@ export function SchematicEditor({
         <defs>
           <pattern
             id={gridPatternId}
-            x={viewport.panX % (GRID * viewport.scale)}
-            y={viewport.panY % (GRID * viewport.scale)}
-            width={GRID * viewport.scale}
-            height={GRID * viewport.scale}
+            x={viewport.panX % (gridSize * viewport.scale)}
+            y={viewport.panY % (gridSize * viewport.scale)}
+            width={gridSize * viewport.scale}
+            height={gridSize * viewport.scale}
             patternUnits="userSpaceOnUse"
           >
             <circle
@@ -1880,6 +1905,8 @@ interface EditorToolbarProps {
   onAlign: (axis: 'left' | 'right' | 'top' | 'bottom' | 'centerH' | 'centerV' | 'distributeH' | 'distributeV') => void;
   onSave: () => void;
   onDownload?: () => void;
+  gridSize: number;
+  onGridSizeChange: (gs: number) => void;
 }
 
 function EditorToolbar({
@@ -1887,7 +1914,7 @@ function EditorToolbar({
   saving, showSave, showDownload, showPowerPalette,
   onMode, onUndo, onRedo, onDelete, onRotate, onMirror,
   onFitScreen, onZoomIn, onZoomOut, onOpenBrowser, onBom, onTogglePowerPalette,
-  onPowerSymbol, onAlign, onSave, onDownload,
+  onPowerSymbol, onAlign, onSave, onDownload, gridSize, onGridSizeChange,
 }: EditorToolbarProps) {
   return (
     <div className="relative flex flex-wrap items-center gap-1 border-b border-border bg-background px-2 py-1.5">
@@ -2004,6 +2031,24 @@ function EditorToolbar({
       <TBtn active={false} onClick={onFitScreen} title="Fit to screen">
         <FitIcon />
       </TBtn>
+
+      <Sep />
+
+      {/* Grid size selector */}
+      <select
+        title="Grid size"
+        value={String(gridSize)}
+        onChange={(e) => onGridSizeChange(Number(e.target.value))}
+        className="h-6 rounded border border-border bg-background px-1 font-mono text-[10px] text-foreground focus:outline-none"
+      >
+        <option value="0.635">0.635mm (25mil)</option>
+        <option value="1">1mm</option>
+        <option value="1.27">1.27mm (50mil)</option>
+        <option value="1.5">1.5mm</option>
+        <option value="2.54">2.54mm (100mil)</option>
+        <option value="3">3mm</option>
+        <option value="5">5mm</option>
+      </select>
 
       {/* Save / Download */}
       {(showSave || showDownload) && <Sep />}

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 interface SearchParams {
   q?: string;
-  filter?: 'all' | 'mine' | 'public';
+  filter?: 'all' | 'mine' | 'public' | 'analog' | 'digital' | 'power';
 }
 
 interface CircuitRow {
@@ -49,18 +49,28 @@ export default async function LibraryPage({
   const q = (searchParams.q ?? '').trim();
   const filter = searchParams.filter ?? 'all';
 
+  // Analog/digital/power filters have no backend impl yet — treat as 'public' so the page doesn't break
+  const effectiveFilter: 'all' | 'mine' | 'public' = ['all', 'mine', 'public'].includes(filter)
+    ? (filter as 'all' | 'mine' | 'public')
+    : 'public';
+
   const baseSelect = supabase.from('schematics').select(ROW_COLUMNS);
 
   const mineQuery =
-    userId && (filter === 'all' || filter === 'mine')
+    userId && (effectiveFilter === 'all' || effectiveFilter === 'mine')
       ? applySearch(baseSelect.eq('owner_id', userId), q)
         .order('created_at', { ascending: false })
         .limit(50)
       : null;
 
   const publicQuery =
-    filter === 'all' || filter === 'public'
-      ? applySearch(baseSelect.eq('visibility', 'public'), q)
+    effectiveFilter === 'all' || effectiveFilter === 'public'
+      ? applySearch(
+          userId && effectiveFilter === 'all'
+            ? baseSelect.eq('visibility', 'public').neq('owner_id', userId)
+            : baseSelect.eq('visibility', 'public'),
+          q
+        )
         .order('created_at', { ascending: false })
         .limit(100)
       : null;
@@ -134,6 +144,7 @@ export default async function LibraryPage({
           <FilterButton value="analog" current={filter}>Analog</FilterButton>
           <FilterButton value="digital" current={filter}>Digital</FilterButton>
           <FilterButton value="power" current={filter}>Power</FilterButton>
+          {/* Note: analog/digital/power currently fall back to public query until backend tagging is implemented */}
         </div>
       </form>
 

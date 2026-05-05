@@ -23,7 +23,7 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [tall, setTall] = useState(false);
 
   const handleSave = useCallback(async (state: EditorState) => {
     const [{ fromEditorState }, { saveSchematicEdits }] = await Promise.all([
@@ -95,19 +95,26 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
             interactive mode — changes are local only
           </span>
-          <button
-            type="button"
-            onClick={() => setMode('svg')}
-            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-          >
-            ← static view
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setTall(v => !v)}
+              className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            >
+              {tall ? '↙ compact' : '↗ expand'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('svg')}
+              className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            >
+              ← static view
+            </button>
+          </div>
         </div>
         <div
-          className="relative overflow-hidden rounded-lg border border-border transition-all duration-300"
-          style={{ height: expanded ? '80vh' : 480 }}
-          onMouseEnter={() => setExpanded(true)}
-          onMouseLeave={() => setExpanded(false)}
+          className="relative overflow-hidden rounded-lg border border-border"
+          style={{ height: tall ? '85vh' : 600 }}
         >
           {saveMsg && (
             <div className="absolute top-2 right-2 z-30 rounded bg-card border border-border px-2 py-1 text-xs font-mono">

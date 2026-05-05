@@ -86,15 +86,17 @@ export default async function HomePage() {
             For working electronics engineers
           </div>
           <h1 className="text-balance text-4xl font-semibold leading-[1.02] tracking-tight sm:text-5xl md:text-6xl">
-            Never lose a circuit{' '}
+            Your circuit library,{' '}
             <em className="font-medium not-italic" style={{ color: ACCENT, fontStyle: 'italic' }}>
-              you&apos;ve already drawn.
+              indexed and searchable.
             </em>
           </h1>
           <p className="mt-5 max-w-prose text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            eencyclopedia indexes every schematic you upload — KiCad in, AI summary out — so a year
-            from now you can ask <span className="font-mono text-foreground">&ldquo;that low-pass I made for the audio jack?&rdquo;</span>{' '}
-            and actually get it back. Search, recall, explain, improve.
+            Upload KiCad schematics or draw from scratch in the browser. Every circuit gets an
+            AI-generated summary and is embedded for hybrid semantic search — so months later you
+            can ask{' '}
+            <span className="font-mono text-foreground">&ldquo;that low-pass I made for the audio jack?&rdquo;</span>{' '}
+            and actually get it back.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <Link
@@ -118,8 +120,9 @@ export default async function HomePage() {
           </div>
           <ul className="mt-7 flex flex-wrap gap-x-7 gap-y-3 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             <li><span style={{ color: ACCENT }}>✓</span> Upload .kicad_sch</li>
-            <li><span style={{ color: ACCENT }}>✓</span> EE-tuned AI</li>
-            <li><span style={{ color: ACCENT }}>✓</span> Citations included</li>
+            <li><span style={{ color: ACCENT }}>✓</span> Browser schematic editor</li>
+            <li><span style={{ color: ACCENT }}>✓</span> 12 calculators</li>
+            <li><span style={{ color: ACCENT }}>✓</span> AI chat &amp; search</li>
             <li><span style={{ color: ACCENT }}>✓</span> Free in beta</li>
           </ul>
         </div>
@@ -231,14 +234,14 @@ export default async function HomePage() {
       <section className="border-t border-border py-20" id="how">
         <SectionHeader
           eyebrow="How it works"
-          title="Drop in a .kicad_sch. Get an indexed, queryable circuit."
-          blurb="No workflow change. Same file you save in KiCad. eencyclopedia handles the rest — parse, render, summarise, embed, store."
+          title="Upload a .kicad_sch or draw from scratch. Get an indexed, queryable circuit."
+          blurb="No special workflow required. Upload the file you already have in KiCad, or open the browser editor and start drawing. eencyclopedia handles the rest."
         />
         <div className="grid grid-cols-1 overflow-hidden rounded-xl border border-border sm:grid-cols-2 md:grid-cols-4">
-          <Step n="01" label="Upload" title="Drop a schematic" body="Single .kicad_sch file. Up to 5 components in V0 (cap rises with the platform)." />
-          <Step n="02" label="Parse & render" title="Render to SVG" body="S-exp → AST → clean schematic SVG. Every net and designator becomes a hover target." />
-          <Step n="03" label="Summarise" title="AI extracts intent" body="Topology, rails, key components, design notes. Stored as structured JSON — not just prose." />
-          <Step n="04" label="Recall" title="Ask it anything" body="Natural-language queries hit a hybrid (FTS + vector) index. Answers cite the exact circuit." />
+          <Step n="01" label="Import or draw" title="Upload .kicad_sch or draw from scratch" body="Drop an existing KiCad schematic or open the browser editor to draw one from scratch — up to 50 components." />
+          <Step n="02" label="Parse & render" title="AI parses and renders your schematic" body="S-exp → AST → clean SVG. Every net and designator becomes a hover target with live tooltips." />
+          <Step n="03" label="Summarise" title="AI generates a searchable summary" body="Topology, power rails, key components, design intent. Embedded as a 1024-d vector for semantic retrieval." />
+          <Step n="04" label="Recall" title="Search, recall, and ask the AI" body="Natural-language queries hit a hybrid FTS + vector index. Chat with the AI about any circuit in your library." />
         </div>
       </section>
 
@@ -247,15 +250,15 @@ export default async function HomePage() {
         <SectionHeader
           eyebrow="What's in V0"
           title="An EE's reference, not a generic chatbot."
-          blurb="Grounded in textbooks, datasheets, and your own corpus. Refuses non-electronics topics. Always shows the math."
+          blurb="Grounded in your own circuits, textbooks, and datasheets. Refuses non-electronics topics. Always shows the math."
         />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Feature title="Search circuits, not parts" body="Curated reference designs with filters for supply, topology, and citation source. Find what works, then fork it." />
-          <Feature title="Hover-to-explain" body="Every wire and component is interactive. Hover for tooltips, click to ask the AI about that exact net." />
-          <Feature title="Math, not vibes" body="Every answer ships with the derivation in KaTeX, units, and a citation. Verify before you fab." />
-          <Feature title="Twelve calculators, instant" body="Ohm, dividers, RC/RL, reactance, resonance, op-amp gain, LED resistor. Pure JS — no AI tax." />
-          <Feature title="Favorites & library" body="Star components and circuits. Build a personal reference shelf alongside the public library." />
-          <Feature title="Cited, not hallucinated" body="RAG over textbooks, app notes, and your circuits. If it can't be cited, the assistant says so out loud." />
+          <Feature title="Schematic editor" body="Draw and edit schematics directly in the browser. Resistors, capacitors, diodes, ICs — place, connect, and export as .kicad_sch." />
+          <Feature title="KiCad import" body="Upload any .kicad_sch file and get an interactive SVG with hover tooltips on every net and component." />
+          <Feature title="AI summary" body="Every circuit gets an auto-generated explanation — topology, power rails, key components, design intent. Stored and indexed for retrieval." />
+          <Feature title="Hybrid search" body="Full-text search combined with pgvector semantic search. Ask in plain English and get the right circuit back." />
+          <Feature title="Twelve calculators" body="Ohm's law, voltage divider, RC/RL time constants, LC resonance, decibels, op-amp gain, LED resistor. Pure JS — instant, no AI tax." />
+          <Feature title="AI chat" body="Ask questions about any circuit in your library or the public corpus. RAG-grounded answers with citations — not hallucinations." />
         </div>
 
         <div
@@ -334,7 +337,7 @@ export default async function HomePage() {
           <div>© {new Date().getFullYear()} eencyclopedia · solo-built, bootstrapped</div>
           <div className="flex flex-wrap gap-5">
             <Link href="/library" className="hover:text-foreground">Library</Link>
-            <Link href="/calc" className="hover:text-foreground">Calc</Link>
+            <Link href="/calc" className="hover:text-foreground">Calculator</Link>
             <Link href="/api/health" className="hover:text-foreground">Status</Link>
           </div>
         </div>

@@ -60,7 +60,8 @@ export async function Header() {
                   + Upload
                 </Link>
                 <Link href="/library">Library</Link>
-                <Link href="/calc">Calc</Link>
+                <Link href="/schematic/new">Editor</Link>
+                <Link href="/calc">Calculator</Link>
                 <Link href="/chat">Chat</Link>
                 <Link href="/favorites" title="Starred circuits">
                   ★
@@ -89,6 +90,7 @@ export async function Header() {
                 <Link href="/onboarding" className="btn btn-primary btn-sm">
                   Finish setup
                 </Link>
+                <Link href="/schematic/new">Editor</Link>
                 <span className="sep" aria-hidden />
                 <form action={signOut} style={{ display: 'inline' }}>
                   <button type="submit" className="btn btn-ghost btn-sm">
@@ -99,7 +101,8 @@ export async function Header() {
             )
           ) : (
             <>
-              <Link href="/calc">Calc</Link>
+              <Link href="/calc">Calculator</Link>
+              <Link href="/schematic/new">Editor</Link>
               <Link href="/login" className="btn btn-primary btn-sm">
                 Sign in
               </Link>
