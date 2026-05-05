@@ -41,6 +41,14 @@ const nextConfig = {
     },
     serverComponentsExternalPackages: ['pdf-parse', '@huggingface/transformers', 'onnxruntime-node'],
     instrumentationHook: true,
+    outputFileTracingExcludes: {
+      '*': [
+        'node_modules/@huggingface/transformers/**',
+        'node_modules/onnxruntime-node/**',
+        'node_modules/onnxruntime-web/**',
+        'node_modules/sharp/**',
+      ],
+    },
   },
   images: {
     remotePatterns: supabaseHost
