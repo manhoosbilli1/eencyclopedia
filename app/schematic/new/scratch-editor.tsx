@@ -9,7 +9,7 @@
  */
 
 import { useState, useCallback, useTransition } from 'react';
-import { SchematicEditor } from '@/components/schematic/SchematicEditor';
+import { SchematicEditorClient } from '@/components/schematic/SchematicEditorClient';
 import { EMPTY_STATE } from '@/components/schematic/editorTypes';
 import type { EditorState } from '@/components/schematic/editorTypes';
 
@@ -109,8 +109,10 @@ export function ScratchEditor() {
         </button>
       </div>
 
-      {/* Editor — fills remaining height */}
-      <SchematicEditor
+      {/* Editor — fills remaining height. Loaded ssr:false via the client
+          wrapper so production builds never see a hydration mismatch on the
+          interactive subtree. */}
+      <SchematicEditorClient
         initialState={EMPTY_STATE}
         onChange={handleChange}
         className="flex-1"

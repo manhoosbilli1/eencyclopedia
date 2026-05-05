@@ -22,6 +22,7 @@ import { StarButton } from './star-button';
 import { CommentsSection } from './comments-section';
 import { BomPanel } from './bom-panel';
 import { SimPanel } from './sim-panel';
+import { ForkBreadcrumb, type ForkAncestor } from './fork-breadcrumb';
 
 interface Params {
   params: { id: string };
@@ -57,7 +58,7 @@ export default async function CircuitPage({ params }: Params) {
   const { data, error } = await supabase
     .from('schematics')
     .select(
-      'id, owner_id, title, description, visibility, component_count, raw_kicad_url, svg_url, ai_summary, ai_summary_struct, created_at, updated_at, star_count',
+      'id, owner_id, title, description, visibility, component_count, raw_kicad_url, svg_url, ai_summary, ai_summary_struct, created_at, updated_at, star_count, fork_of, fork_root_id, fork_count',
     )
     .eq('id', params.id)
     .maybeSingle();
@@ -91,6 +92,42 @@ export default async function CircuitPage({ params }: Params) {
   const aiStruct = (data as { ai_summary_struct: Record<string, unknown> | null }).ai_summary_struct;
   const createdAt = (data as { created_at: string }).created_at;
   const starCount = (data as { star_count: number }).star_count ?? 0;
+  const forkOf = (data as { fork_of: string | null }).fork_of;
+  const forkRootId = (data as { fork_root_id: string | null }).fork_root_id;
+  const forkCount = (data as { fork_count: number | null }).fork_count ?? 0;
+
+  // Resolve fork ancestry — parent (immediate) + root (oldest ancestor).
+  // Each is the smallest possible projection and is automatically RLS-scoped.
+  const ancestorIds = [forkOf, forkRootId].filter((x): x is string => !!x && x !== params.id);
+  let parentAncestor: ForkAncestor | null = null;
+  let rootAncestor: ForkAncestor | null = null;
+  if (ancestorIds.length > 0) {
+    const { data: ancestorRows } = await supabase
+      .from('schematics')
+      .select('id, title, owner_id')
+      .in('id', ancestorIds);
+    const rows = (ancestorRows ?? []) as Array<{
+      id: string; title: string; owner_id: string;
+    }>;
+    if (rows.length > 0) {
+      const ownerIds = [...new Set(rows.map((r) => r.owner_id))];
+      const { data: ownerProfiles } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', ownerIds);
+      const usernameById = new Map(
+        ((ownerProfiles ?? []) as Array<{ id: string; username: string }>)
+          .map((p) => [p.id, p.username]),
+      );
+      const toAncestor = (id: string): ForkAncestor | null => {
+        const r = rows.find((x) => x.id === id);
+        if (!r) return null;
+        return { id: r.id, title: r.title, ownerUsername: usernameById.get(r.owner_id) ?? null };
+      };
+      parentAncestor = forkOf ? toAncestor(forkOf) : null;
+      rootAncestor = forkRootId ? toAncestor(forkRootId) : null;
+    }
+  }
 
   // Did the current user star/favorite this circuit?
   let isStarred = false;
@@ -244,6 +281,9 @@ export default async function CircuitPage({ params }: Params) {
         </div>
       </div>
 
+      {/* Fork lineage — only renders when there's lineage or descendants */}
+      <ForkBreadcrumb parent={parentAncestor} root={rootAncestor} forkCount={forkCount} />
+
       {description && (
         <p className="mt-6 max-w-prose text-sm leading-relaxed text-foreground">{description}</p>
       )}
@@ -260,7 +300,15 @@ export default async function CircuitPage({ params }: Params) {
           </div>
         </div>
         {svgInline ? (
-          <SchematicViewer svgContent={svgInline} circuitId={params.id} chatHref={`/chat?circuit=${params.id}`} rawKicadUrl={rawUrl} />
+          <SchematicViewer
+            svgContent={svgInline}
+            circuitId={params.id}
+            chatHref={`/chat?circuit=${params.id}`}
+            rawKicadUrl={rawUrl}
+            isOwner={isOwner}
+            canEdit={!!user}
+            title={title}
+          />
         ) : svgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={svgUrl} alt={`Render of ${title}`} className="block w-full" />

@@ -1,186 +1,392 @@
 /**
- * Serialise an EditorState back to a KiCad 8 .kicad_sch string.
- * The output is accepted by looksLikeKiCadSchematic() in parse.ts and
- * will round-trip cleanly through the full parse → normalise → render pipeline.
+ * Serialise an EditorState back to a KiCad 10–compatible .kicad_sch string.
  *
- * V2 changes vs V1:
- *  - lib_symbol stubs include per-pin positions derived from drawSymbol() so
- *    that parse.ts can extract proper world-coordinate pin positions and the
- *    normalise step reconnects wires correctly.
- *  - Pin stubs inside each symbol instance reference the same pin numbers as
- *    the lib_symbol stubs (1-indexed or glyph pin numbers).
+ * Output targets KiCad 9/10 (eeschema file format 20250114). Verified to:
+ *   - pass looksLikeKiCadSchematic() in lib/kicad/parse.ts
+ *   - round-trip through parseKiCadSchematic → normalise → renderSvg
+ *   - open in KiCad 10 without errors (sheet_instances + embedded_fonts present,
+ *     UUIDs on every wire/junction/label/no_connect/text, full lib_symbol
+ *     metadata + body geometry, instance pin stubs in `(pin "<n>" (uuid …))`
+ *     short form, shared root UUID in instance paths so KiCad keeps designators)
  */
 
 import type { EditorState, EditorComponent } from '@/components/schematic/editorTypes';
-import { drawSymbol } from '@/lib/kicad/symbols';
+import { drawSymbol, type PinAnchor } from '@/lib/kicad/symbols';
 
 export function fromEditorState(state: EditorState): string {
-  const parts: string[] = [];
-  parts.push(`(kicad_sch (version 20231120) (generator eencyclopedia-editor)`);
-  parts.push(``);
+  const rootUuid = randomUuid();
+  const lines: string[] = [];
 
-  // lib_symbols — one stub per unique libId, with accurate pin positions
+  // Header — KiCad 10 multi-line root form
+  lines.push('(kicad_sch');
+  lines.push('\t(version 20250114)');
+  lines.push('\t(generator "eeschema")');
+  lines.push('\t(generator_version "9.0")');
+  lines.push(`\t(uuid "${rootUuid}")`);
+  lines.push('\t(paper "A4")');
+
+  // lib_symbols — one full stub per unique libId
   const libIds = [...new Set(state.components.map((c) => c.libId))];
   if (libIds.length > 0) {
-    parts.push(`  (lib_symbols`);
+    lines.push('\t(lib_symbols');
     for (const lid of libIds) {
-      parts.push(libSymbolStub(lid));
+      lines.push(libSymbolStub(lid));
     }
-    parts.push(`  )`);
-    parts.push(``);
+    lines.push('\t)');
   }
 
   // wires
   for (const w of state.wires) {
-    parts.push(`  (wire (pts (xy ${n(w.x1)} ${n(w.y1)}) (xy ${n(w.x2)} ${n(w.y2)})) (stroke (width 0) (type default)))`);
+    lines.push(wireBlock(w.x1, w.y1, w.x2, w.y2));
   }
 
   // junctions
   for (const j of state.junctions) {
-    parts.push(`  (junction (at ${n(j.x)} ${n(j.y)}) (diameter 0) (color 0 0 0 0))`);
+    lines.push(junctionBlock(j.x, j.y));
   }
 
   // no_connect markers
   for (const nc of state.noConnects) {
-    parts.push(`  (no_connect (at ${n(nc.x)} ${n(nc.y)}) (uuid "${randomUuid()}"))`);
+    lines.push(noConnectBlock(nc.x, nc.y));
   }
 
   // labels / global_labels
   for (const l of state.labels) {
     const tag = l.kind === 'global' ? 'global_label' : 'label';
-    parts.push(`  (${tag} "${esc(l.text)}" (at ${n(l.x)} ${n(l.y)} ${l.rot}) (effects (font (size 1.27 1.27))))`);
+    lines.push(labelBlock(tag, l.text, l.x, l.y, l.rot));
   }
 
   // text annotations
   for (const t of state.texts) {
-    const bold = t.bold ? ' bold' : '';
-    const italic = t.italic ? ' italic' : '';
-    parts.push(
-      `  (text "${esc(t.text)}" (at ${n(t.x)} ${n(t.y)} 0) ` +
-      `(effects (font (size ${n(t.fontSize)} ${n(t.fontSize)})${bold}${italic})))`,
-    );
+    lines.push(textBlock(t.text, t.x, t.y, t.fontSize, t.bold, t.italic));
   }
 
-  // symbols
+  // symbol instances
   for (const comp of state.components) {
-    parts.push(symbolBlock(comp));
+    lines.push(symbolBlock(comp, rootUuid));
   }
 
-  parts.push(`)`);
-  return parts.join('\n');
+  // sheet_instances + embedded_fonts (mandatory in KiCad 10)
+  lines.push('\t(sheet_instances');
+  lines.push('\t\t(path "/"');
+  lines.push('\t\t\t(page "1")');
+  lines.push('\t\t)');
+  lines.push('\t)');
+  lines.push('\t(embedded_fonts no)');
+  lines.push(')');
+
+  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------
-// lib_symbol stub — per-pin positions come from drawSymbol()
+// lib_symbol stub — KiCad 10 expects full metadata + body geometry + pins
 // ---------------------------------------------------------------------------
 
-/**
- * Build a minimal `(symbol "<libId>" …)` block that encodes the real pin
- * positions so parse.ts → normalise can compute accurate world coordinates.
- *
- * KiCad format:
- *   (symbol "Device:R"
- *     (symbol "Device:R_1_1"
- *       (pin passive line (at 0 5.08 270) (length 2.54)
- *            (name "~" (effects ...)) (number "1" (effects ...)))))
- *
- * We use a nested `_1_1` unit symbol so the parse.ts `findAll(sym, 'pin')`
- * walk that descends into nested symbols will find them.
- *
- * Pin angle convention (KiCad): the `(at x y rot)` in a pin definition is
- * the wire-attach point in the lib-symbol's local frame, and the rotation is
- * the angle the pin *line* makes (pointing away from the body toward the wire).
- * For a 2-pin vertical passive the top pin is at (0, +5.08, 270) — i.e. the
- * wire extends upward (270° in KiCad's CCW convention in the +Y-down frame).
- *
- * Since we only need the *positions* for our renderer (the angle is ignored
- * by normalise.ts when computing world coords), we hard-code angle 0 for all
- * pins — this is safe for our pipeline.
- */
 function libSymbolStub(libId: string): string {
   const draw = drawSymbol(libId, '');
-  const safe = esc(libId);
-  // KiCad uses a "unit" sub-symbol for the actual geometry. The inner name
-  // must NOT include the library prefix (e.g. "Device:") — KiCad 10 rejects
-  // names like "Device:R_1_1" with "Invalid symbol unit name prefix".
-  // Correct form: "R_1_1" (just the component part, then _unit_deco).
-  const compName = libId.includes(':') ? libId.split(':')[1] : libId;
-  const unitName = esc(`${compName}_1_1`);
+  const safeLibId = esc(libId);
+  // Inner unit name MUST NOT include the library prefix.
+  const compName = libId.includes(':') ? libId.split(':')[1]! : libId;
+  const unitNameBody = esc(`${compName}_0_1`);     // graphic body unit
+  const unitNamePins = esc(`${compName}_1_1`);     // pin unit
+  const isPower = libId.toLowerCase().startsWith('power:');
 
-  const pinLines = draw.pins.map((p) =>
-    `        (pin passive line (at ${n(p.dx)} ${n(p.dy)} 0) (length 2.54)` +
-    ` (name "~" (effects (font (size 1.27 1.27))))` +
-    ` (number "${esc(p.number)}" (effects (font (size 1.27 1.27)))))`,
-  );
+  // Reference designator letter for the lib_symbol property
+  const refLetter = isPower ? '#PWR' : guessRefLetter(libId);
 
-  return [
-    `    (symbol "${safe}"`,
-    `      (symbol "${unitName}"`,
-    ...pinLines,
-    `      )`,
-    `    )`,
-  ].join('\n');
+  const out: string[] = [];
+  out.push(`\t\t(symbol "${safeLibId}"`);
+  if (isPower) out.push('\t\t\t(power)');
+  out.push('\t\t\t(pin_names');
+  out.push('\t\t\t\t(offset 0.254)');
+  out.push('\t\t\t)');
+  out.push('\t\t\t(exclude_from_sim no)');
+  out.push('\t\t\t(in_bom yes)');
+  out.push('\t\t\t(on_board yes)');
+  // Required properties — KiCad refuses lib_symbols missing Reference/Value.
+  out.push(libProperty('Reference', refLetter, false));
+  out.push(libProperty('Value', libId, false));
+  out.push(libProperty('Footprint', '', true));
+  out.push(libProperty('Datasheet', '', true));
+  out.push(libProperty('Description', '', true));
+
+  // Body unit (_0_1) — minimal placeholder rectangle so KiCad has something
+  // to draw besides naked pins. We size it from the glyph's halfWidth/Height.
+  // Power symbols don't need a body rectangle.
+  if (!isPower) {
+    const hw = Math.max(draw.halfWidth, 1);
+    const hh = Math.max(draw.halfHeight, 1);
+    out.push(`\t\t\t(symbol "${unitNameBody}"`);
+    out.push('\t\t\t\t(rectangle');
+    out.push(`\t\t\t\t\t(start ${n(-hw)} ${n(-hh)})`);
+    out.push(`\t\t\t\t\t(end ${n(hw)} ${n(hh)})`);
+    out.push('\t\t\t\t\t(stroke');
+    out.push('\t\t\t\t\t\t(width 0.2032)');
+    out.push('\t\t\t\t\t\t(type default)');
+    out.push('\t\t\t\t\t)');
+    out.push('\t\t\t\t\t(fill');
+    out.push('\t\t\t\t\t\t(type none)');
+    out.push('\t\t\t\t\t)');
+    out.push('\t\t\t\t)');
+    out.push('\t\t\t)');
+  }
+
+  // Pin unit (_1_1) — pins with correct rotation pointing AWAY from body.
+  out.push(`\t\t\t(symbol "${unitNamePins}"`);
+  for (const p of draw.pins) {
+    out.push(pinDef(p, isPower));
+  }
+  out.push('\t\t\t)');
+
+  out.push('\t\t\t(embedded_fonts no)');
+  out.push('\t\t)');
+  return out.join('\n');
+}
+
+function libProperty(name: string, value: string, hide: boolean): string {
+  const out: string[] = [];
+  out.push(`\t\t\t(property "${esc(name)}" "${esc(value)}"`);
+  out.push('\t\t\t\t(at 0 0 0)');
+  out.push('\t\t\t\t(effects');
+  out.push('\t\t\t\t\t(font');
+  out.push('\t\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t\t)');
+  if (hide) out.push('\t\t\t\t\t(hide yes)');
+  out.push('\t\t\t\t)');
+  out.push('\t\t\t)');
+  return out.join('\n');
+}
+
+/**
+ * Emit one `(pin … )` block inside a lib_symbol unit.
+ *
+ * Pin rotation in KiCad is the direction the pin extends from its anchor
+ * (the wire-attach point). We pick the angle that points the pin OUTWARD
+ * from the symbol body so the pin label sits inside, and the wire-end
+ * coordinate matches the editor glyph's pin position.
+ *
+ * Length 0 → anchor IS the wire endpoint, matching how the editor draws pins.
+ */
+function pinDef(p: PinAnchor, isPower: boolean): string {
+  const rot = pinRotation(p.dx, p.dy);
+  const electricalType = isPower ? 'power_in' : 'passive';
+  const out: string[] = [];
+  out.push(`\t\t\t\t(pin ${electricalType} line`);
+  out.push(`\t\t\t\t\t(at ${n(p.dx)} ${n(p.dy)} ${rot})`);
+  out.push('\t\t\t\t\t(length 0)');
+  out.push('\t\t\t\t\t(name "~"');
+  out.push('\t\t\t\t\t\t(effects');
+  out.push('\t\t\t\t\t\t\t(font');
+  out.push('\t\t\t\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t)');
+  out.push(`\t\t\t\t\t(number "${esc(p.number)}"`);
+  out.push('\t\t\t\t\t\t(effects');
+  out.push('\t\t\t\t\t\t\t(font');
+  out.push('\t\t\t\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t)');
+  out.push('\t\t\t\t)');
+  return out.join('\n');
+}
+
+function pinRotation(dx: number, dy: number): number {
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? 0 : 180;
+  }
+  return dy >= 0 ? 90 : 270;
+}
+
+function guessRefLetter(libId: string): string {
+  const id = libId.toLowerCase();
+  if (id.startsWith('power:')) return '#PWR';
+  if (id === 'device:r' || id.startsWith('device:r_')) return 'R';
+  if (id === 'device:c' || id.startsWith('device:c_') ||
+      id.startsWith('device:cp')) return 'C';
+  if (id === 'device:l' || id.startsWith('device:l_')) return 'L';
+  if (id === 'device:d' || id.startsWith('device:d_') ||
+      id === 'device:led' || id.startsWith('device:led')) return 'D';
+  if (id === 'device:fuse' || id.startsWith('device:fuse')) return 'F';
+  if (id === 'device:crystal' || id.startsWith('device:crystal') ||
+      id === 'device:resonator') return 'Y';
+  if (id === 'device:battery' || id.startsWith('device:battery')) return 'BT';
+  if (id.startsWith('device:sw_') || id.startsWith('switch:')) return 'SW';
+  if (id.startsWith('device:q_') || id.startsWith('transistor_')) return 'Q';
+  if (id.startsWith('amplifier_') || id.startsWith('comparator:') ||
+      id.startsWith('regulator_') || id.startsWith('mcu_') ||
+      id.startsWith('sensor') || id.startsWith('logic_') ||
+      id.startsWith('memory_') || id.startsWith('interface_') ||
+      id.startsWith('display:')) return 'U';
+  if (id.startsWith('connector')) return 'J';
+  if (id.startsWith('device:transformer') || id.startsWith('transformer:')) return 'T';
+  return 'U';
 }
 
 // ---------------------------------------------------------------------------
 // Symbol instance block
 // ---------------------------------------------------------------------------
 
-function symbolBlock(comp: EditorComponent): string {
-  const mirrorAttr = comp.mirror === 'x' ? ' (mirror x)' : comp.mirror === 'y' ? ' (mirror y)' : '';
-  const uuid = randomUuid();
-  const pRef = refPropPos(comp);
-  const pVal = valPropPos(comp);
-
+function symbolBlock(comp: EditorComponent, rootUuid: string): string {
   const draw = drawSymbol(comp.libId, comp.value);
+  const symUuid = randomUuid();
+  const out: string[] = [];
 
-  // Pin stubs reference the pin numbers from the glyph definition so they
-  // align with the lib_symbol stub entries built by libSymbolStub().
-  const pinStubs = draw.pins.map((p) =>
-    `    (pin "${esc(p.number)}" "~" (uuid "${randomUuid()}"))`,
-  ).join('\n');
+  out.push('\t(symbol');
+  out.push(`\t\t(lib_id "${esc(comp.libId)}")`);
+  out.push(`\t\t(at ${n(comp.x)} ${n(comp.y)} ${comp.rot})`);
+  if (comp.mirror === 'x' || comp.mirror === 'y') {
+    out.push(`\t\t(mirror ${comp.mirror})`);
+  }
+  out.push('\t\t(unit 1)');
+  out.push('\t\t(exclude_from_sim no)');
+  out.push('\t\t(in_bom yes)');
+  out.push('\t\t(on_board yes)');
+  out.push('\t\t(dnp no)');
+  out.push(`\t\t(uuid "${symUuid}")`);
 
-  return [
-    `  (symbol (lib_id "${esc(comp.libId)}") (at ${n(comp.x)} ${n(comp.y)} ${comp.rot})${mirrorAttr} (unit 1)`,
-    `    (in_bom yes) (on_board yes)`,
-    `    (property "Reference" "${esc(comp.designator)}" (at ${n(pRef.x)} ${n(pRef.y)} 0)`,
-    `      (effects (font (size 1.27 1.27))))`,
-    `    (property "Value" "${esc(comp.value)}" (at ${n(pVal.x)} ${n(pVal.y)} 0)`,
-    `      (effects (font (size 1.27 1.27))))`,
-    ...(comp.mpn ? [
-      `    (property "MPN" "${esc(comp.mpn)}" (at ${n(pRef.x)} ${n(pRef.y + 3)} 0)`,
-      `      (effects (font (size 1.27 1.27))))`,
-    ] : []),
-    ...(comp.footprint ? [
-      `    (property "Footprint" "${esc(comp.footprint)}" (at ${n(pRef.x)} ${n(pRef.y + 6)} 0)`,
-      `      (effects (font (size 1.27 1.27))))`,
-    ] : []),
-    pinStubs,
-    `    (instances (project "eencyc" (path "/${uuid}" (reference "${esc(comp.designator)}") (unit 1))))`,
-    `  )`,
-  ].join('\n');
+  // Properties — Reference, Value mandatory; Footprint/Datasheet/Description
+  // always emitted (even blank) because KiCad rewrites the file with these.
+  out.push(propertyBlock('Reference', comp.designator, comp.x - 4, comp.y - 4, false));
+  out.push(propertyBlock('Value', comp.value, comp.x + 2, comp.y + 4, false));
+  out.push(propertyBlock('Footprint', comp.footprint ?? '', comp.x, comp.y, true));
+  out.push(propertyBlock('Datasheet', comp.datasheet ?? '', comp.x, comp.y, true));
+  out.push(propertyBlock('Description', '', comp.x, comp.y, true));
+  if (comp.mpn) {
+    out.push(propertyBlock('MPN', comp.mpn, comp.x, comp.y + 6, true));
+  }
+
+  // Pin stubs — KiCad 10 short form: (pin "<num>" (uuid "<u>"))
+  for (const p of draw.pins) {
+    out.push(`\t\t(pin "${esc(p.number)}"`);
+    out.push(`\t\t\t(uuid "${randomUuid()}")`);
+    out.push('\t\t)');
+  }
+
+  // Instances — path UUID is the schematic-root UUID (shared), NOT a per-symbol UUID.
+  out.push('\t\t(instances');
+  out.push('\t\t\t(project "eencyclopedia"');
+  out.push(`\t\t\t\t(path "/${rootUuid}"`);
+  out.push(`\t\t\t\t\t(reference "${esc(comp.designator)}")`);
+  out.push('\t\t\t\t\t(unit 1)');
+  out.push('\t\t\t\t)');
+  out.push('\t\t\t)');
+  out.push('\t\t)');
+  out.push('\t)');
+  return out.join('\n');
+}
+
+function propertyBlock(
+  name: string, value: string, x: number, y: number, hide: boolean,
+): string {
+  const out: string[] = [];
+  out.push(`\t\t(property "${esc(name)}" "${esc(value)}"`);
+  out.push(`\t\t\t(at ${n(x)} ${n(y)} 0)`);
+  out.push('\t\t\t(effects');
+  out.push('\t\t\t\t(font');
+  out.push('\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t)');
+  if (hide) out.push('\t\t\t\t(hide yes)');
+  out.push('\t\t\t)');
+  out.push('\t\t)');
+  return out.join('\n');
 }
 
 // ---------------------------------------------------------------------------
-// Property label offsets
+// Wires, junctions, labels, no_connects, text — all need UUIDs in KiCad 10
 // ---------------------------------------------------------------------------
 
-function refPropPos(c: EditorComponent) { return { x: c.x - 4, y: c.y - 4 }; }
-function valPropPos(c: EditorComponent) { return { x: c.x + 2, y: c.y + 4 }; }
+function wireBlock(x1: number, y1: number, x2: number, y2: number): string {
+  return [
+    '\t(wire',
+    '\t\t(pts',
+    `\t\t\t(xy ${n(x1)} ${n(y1)}) (xy ${n(x2)} ${n(y2)})`,
+    '\t\t)',
+    '\t\t(stroke',
+    '\t\t\t(width 0)',
+    '\t\t\t(type default)',
+    '\t\t)',
+    `\t\t(uuid "${randomUuid()}")`,
+    '\t)',
+  ].join('\n');
+}
+
+function junctionBlock(x: number, y: number): string {
+  return [
+    '\t(junction',
+    `\t\t(at ${n(x)} ${n(y)})`,
+    '\t\t(diameter 0)',
+    '\t\t(color 0 0 0 0)',
+    `\t\t(uuid "${randomUuid()}")`,
+    '\t)',
+  ].join('\n');
+}
+
+function noConnectBlock(x: number, y: number): string {
+  return [
+    '\t(no_connect',
+    `\t\t(at ${n(x)} ${n(y)})`,
+    `\t\t(uuid "${randomUuid()}")`,
+    '\t)',
+  ].join('\n');
+}
+
+function labelBlock(
+  tag: 'label' | 'global_label', text: string, x: number, y: number, rot: number,
+): string {
+  return [
+    `\t(${tag} "${esc(text)}"`,
+    `\t\t(at ${n(x)} ${n(y)} ${rot})`,
+    '\t\t(effects',
+    '\t\t\t(font',
+    '\t\t\t\t(size 1.27 1.27)',
+    '\t\t\t)',
+    '\t\t\t(justify left bottom)',
+    '\t\t)',
+    `\t\t(uuid "${randomUuid()}")`,
+    '\t)',
+  ].join('\n');
+}
+
+function textBlock(
+  text: string, x: number, y: number, fontSize: number,
+  bold: boolean, italic: boolean,
+): string {
+  const fontExtras: string[] = [];
+  if (bold) fontExtras.push('\t\t\t\t(bold yes)');
+  if (italic) fontExtras.push('\t\t\t\t(italic yes)');
+  const out: string[] = [];
+  out.push(`\t(text "${esc(text)}"`);
+  out.push('\t\t(exclude_from_sim no)');
+  out.push(`\t\t(at ${n(x)} ${n(y)} 0)`);
+  out.push('\t\t(effects');
+  out.push('\t\t\t(font');
+  out.push(`\t\t\t\t(size ${n(fontSize)} ${n(fontSize)})`);
+  out.push(...fontExtras);
+  out.push('\t\t\t)');
+  out.push('\t\t)');
+  out.push(`\t\t(uuid "${randomUuid()}")`);
+  out.push('\t)');
+  return out.join('\n');
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function n(v: number) {
-  return Number.isInteger(v) ? String(v) : v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+function n(v: number): string {
+  if (Number.isInteger(v)) return String(v);
+  return v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-function esc(v: string) {
+function esc(v: string): string {
+  // KiCad S-expression string: backslash-escape \" and \\.
   return v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function randomUuid() {
+function randomUuid(): string {
+  // RFC 4122 v4 — 8-4-4-4-12 lowercase hex with version/variant bits set.
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);

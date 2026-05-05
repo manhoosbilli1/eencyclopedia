@@ -17,7 +17,7 @@ import { createSchematic, type ActionResult } from '@/lib/circuits/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { SchematicEditor } from '@/components/schematic/SchematicEditor';
+import { SchematicEditorClient } from '@/components/schematic/SchematicEditorClient';
 import type { EditorState } from '@/components/schematic/editorTypes';
 
 const DRAFT_KEY = 'eencyc:upload-form-draft:v2';
@@ -293,7 +293,7 @@ export function UploadForm() {
             </button>
           </div>
           <div className="overflow-hidden rounded-lg border border-border">
-            <SchematicEditor
+            <SchematicEditorClient
               initialState={editorState}
               onChange={handleEditorChange}
               className="h-[520px]"

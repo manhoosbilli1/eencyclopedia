@@ -40,7 +40,8 @@ const nextConfig = {
       bodySizeLimit: '5mb',
     },
     serverComponentsExternalPackages: ['pdf-parse', '@huggingface/transformers', 'onnxruntime-node'],
-    instrumentationHook: true,
+    // instrumentationHook is enabled by default in Next 14.2+; the explicit
+    // flag was the trigger for the duplicate Sentry init we just removed.
     outputFileTracingExcludes: {
       '*': [
         'node_modules/@huggingface/transformers/**',

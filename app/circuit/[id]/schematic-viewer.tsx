@@ -3,11 +3,17 @@
 /**
  * SchematicViewer — shows an interactive SchematicEditor when a rawKicadUrl
  * is available (fetches + parses client-side). Falls back to the static SVG
- * with hover tooltips when only an svgContent string is provided.
+ * with hover tooltips otherwise.
+ *
+ * Save model:
+ *   - isOwner=true  → Save button on editor calls saveSchematicEdits (overwrite)
+ *   - isOwner=false → Save button calls forkSchematic (creates new circuit
+ *                     row with fork_of set, redirects to the new circuit page)
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { SchematicEditor } from '@/components/schematic/SchematicEditor';
+import { useRouter } from 'next/navigation';
+import { SchematicEditorClient } from '@/components/schematic/SchematicEditorClient';
 import type { EditorState } from '@/components/schematic/editorTypes';
 
 interface Props {
@@ -16,16 +22,34 @@ interface Props {
   chatHref: string;
   /** If provided, the component will fetch + parse this URL for interactive editing. */
   rawKicadUrl?: string | null;
+  /** When false, Save acts as Fork ("save spinoff") for non-owners. */
+  isOwner: boolean;
+  /** When false, all interactive editor actions are disabled (anonymous viewers). */
+  canEdit: boolean;
+  /** Title of the parent circuit — used as the default fork title. */
+  title: string;
 }
 
-export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }: Props) {
+export function SchematicViewer({
+  svgContent, circuitId, chatHref, rawKicadUrl,
+  isOwner, canEdit, title,
+}: Props) {
+  const router = useRouter();
   const [mode, setMode] = useState<'svg' | 'editor' | 'loading' | 'error'>('svg');
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [tall, setTall] = useState(false);
 
-  const handleSave = useCallback(async (state: EditorState) => {
+  const flashStatus = useCallback((msg: string, ms = 3500) => {
+    setStatusMsg(msg);
+    setTimeout(() => setStatusMsg(null), ms);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Save (owner) — overwrite the same circuit
+  // ---------------------------------------------------------------------------
+  const handleSaveOwner = useCallback(async (state: EditorState) => {
     const [{ fromEditorState }, { saveSchematicEdits }] = await Promise.all([
       import('@/lib/kicad/fromEditorState'),
       import('@/lib/circuits/editorActions'),
@@ -35,22 +59,63 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
     formData.set('circuit_id', circuitId);
     formData.set('source', kicadString);
     const result = await saveSchematicEdits(null, formData);
-    const msg = result.ok ? 'Saved.' : `Save failed: ${result.error ?? 'unknown error'}`;
-    setSaveMsg(msg);
-    setTimeout(() => setSaveMsg(null), 3000);
-  }, [circuitId]);
+    if (result.ok) {
+      flashStatus('Saved.');
+      // Refresh server data so the static viewer below is in sync
+      router.refresh();
+    } else {
+      flashStatus(`Save failed: ${result.error ?? 'unknown error'}`, 5000);
+    }
+  }, [circuitId, flashStatus, router]);
 
+  // ---------------------------------------------------------------------------
+  // Save (fork) — non-owner: create a new circuit row, redirect there.
+  // ---------------------------------------------------------------------------
+  const handleSaveFork = useCallback(async (state: EditorState) => {
+    if (!confirm(`Save as a spinoff of "${title}"?\nThis creates a new circuit you own; the original is unchanged.`)) {
+      return;
+    }
+    const [{ fromEditorState }, { forkSchematic }] = await Promise.all([
+      import('@/lib/kicad/fromEditorState'),
+      import('@/lib/circuits/editorActions'),
+    ]);
+    const kicadString = fromEditorState(state);
+    const formData = new FormData();
+    formData.set('parent_id', circuitId);
+    formData.set('source', kicadString);
+    formData.set('title', `Fork of ${title}`);
+    const result = await forkSchematic(null, formData);
+    if (result.ok) {
+      flashStatus('Spinoff saved! Redirecting…');
+      router.push(`/circuit/${result.circuitId}`);
+    } else {
+      flashStatus(`Save failed: ${result.error ?? 'unknown error'}`, 5000);
+    }
+  }, [circuitId, title, flashStatus, router]);
+
+  const handleSave = isOwner ? handleSaveOwner : handleSaveFork;
+
+  // ---------------------------------------------------------------------------
+  // Download — generate KiCad file in browser, trigger save
+  // ---------------------------------------------------------------------------
   const handleDownload = useCallback(async (state: EditorState) => {
     const { downloadKicadSch } = await import('@/lib/kicad/exportUtils');
-    await downloadKicadSch(state, 'schematic.kicad_sch');
-  }, []);
+    const safe = title.replace(/[^a-z0-9_-]+/gi, '_').slice(0, 40) || 'schematic';
+    await downloadKicadSch(state, `${safe}.kicad_sch`);
+  }, [title]);
 
+  // ---------------------------------------------------------------------------
+  // Open in editor — fetch raw, parse, switch mode
+  // ---------------------------------------------------------------------------
   const loadEditor = useCallback(async () => {
-    if (!rawKicadUrl) return;
+    if (!rawKicadUrl) {
+      flashStatus('No raw KiCad source available for this circuit.', 5000);
+      return;
+    }
     setMode('loading');
     try {
       const res = await fetch(rawKicadUrl, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status} when fetching schematic source`);
       const source = await res.text();
 
       const [{ parseKiCadSchematic, looksLikeKiCadSchematic }, { normalise }, { toEditorState }] =
@@ -69,7 +134,11 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
       setErrMsg((e as Error).message);
       setMode('error');
     }
-  }, [rawKicadUrl]);
+  }, [rawKicadUrl, flashStatus]);
+
+  // ---------------------------------------------------------------------------
+  // Render branches
+  // ---------------------------------------------------------------------------
 
   if (mode === 'loading') {
     return (
@@ -93,7 +162,13 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            interactive mode — changes are local only
+            {isOwner ? (
+              <>interactive mode — Save overwrites your circuit</>
+            ) : canEdit ? (
+              <>interactive mode — Save creates a spinoff (your fork)</>
+            ) : (
+              <>interactive mode — sign in to save edits</>
+            )}
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -116,15 +191,17 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
           className="relative overflow-hidden rounded-lg border border-border"
           style={{ height: tall ? '85vh' : 600 }}
         >
-          {saveMsg && (
+          {statusMsg && (
             <div className="absolute top-2 right-2 z-30 rounded bg-card border border-border px-2 py-1 text-xs font-mono">
-              {saveMsg}
+              {statusMsg}
             </div>
           )}
-          <SchematicEditor
+          <SchematicEditorClient
             initialState={editorState}
             circuitId={circuitId}
-            onSave={handleSave}
+            // Save button only renders when onSave is set.
+            // Anonymous viewers get a read-only editor (no save).
+            onSave={canEdit ? handleSave : undefined}
             onDownload={handleDownload}
             className="h-full"
           />
@@ -136,6 +213,11 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
   // Default: static SVG + toggle button
   return (
     <div className="space-y-2">
+      {statusMsg && (
+        <div className="rounded bg-card border border-border px-2 py-1 text-xs font-mono">
+          {statusMsg}
+        </div>
+      )}
       <StaticViewer svgContent={svgContent} circuitId={circuitId} chatHref={chatHref} />
       {rawKicadUrl && (
         <div className="flex justify-end">
@@ -144,7 +226,7 @@ export function SchematicViewer({ svgContent, circuitId, chatHref, rawKicadUrl }
             onClick={loadEditor}
             className="rounded border border-border bg-muted/30 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:bg-muted hover:text-foreground"
           >
-            ⤢ open in editor
+            ⤢ {isOwner ? 'open in editor' : canEdit ? 'fork & edit' : 'open in viewer'}
           </button>
         </div>
       )}

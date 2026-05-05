@@ -580,6 +580,7 @@ export type Database = {
           description: string | null
           fork_count: number
           fork_of: string | null
+          fork_root_id: string | null
           id: string
           owner_id: string
           raw_kicad_url: string | null
@@ -602,6 +603,7 @@ export type Database = {
           description?: string | null
           fork_count?: number
           fork_of?: string | null
+          fork_root_id?: string | null
           id?: string
           owner_id: string
           raw_kicad_url?: string | null
@@ -624,6 +626,7 @@ export type Database = {
           description?: string | null
           fork_count?: number
           fork_of?: string | null
+          fork_root_id?: string | null
           id?: string
           owner_id?: string
           raw_kicad_url?: string | null
@@ -642,6 +645,13 @@ export type Database = {
           {
             foreignKeyName: "schematics_fork_of_fkey"
             columns: ["fork_of"]
+            isOneToOne: false
+            referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schematics_fork_root_id_fkey"
+            columns: ["fork_root_id"]
             isOneToOne: false
             referencedRelation: "schematics"
             referencedColumns: ["id"]

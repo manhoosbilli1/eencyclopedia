@@ -82,11 +82,15 @@ export function PropertiesPanel({ component, onUpdate, onClose }: PropertiesPane
   return (
     <div
       aria-hidden={!visible}
+      // pointer-events guard: when the panel is off-screen (translate-x-full)
+      // it would still capture clicks because layout space isn't actually
+      // 280px wide off the right edge in some browsers (sub-pixel rounding,
+      // CSS containment quirks). Disable pointer events when not visible.
       className={[
         'absolute right-0 top-8 bottom-0 z-10 w-[280px]',
         'flex flex-col border-l border-border bg-background shadow-xl',
         'transition-transform duration-200 ease-in-out',
-        visible ? 'translate-x-0' : 'translate-x-full',
+        visible ? 'translate-x-0 pointer-events-auto' : 'translate-x-full pointer-events-none',
       ].join(' ')}
     >
       {/* Header */}

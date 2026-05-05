@@ -10,7 +10,7 @@
  */
 
 import { useState, useTransition } from 'react';
-import { SchematicEditor } from '@/components/schematic/SchematicEditor';
+import { SchematicEditorClient as SchematicEditor } from '@/components/schematic/SchematicEditorClient';
 import type { EditorState } from '@/components/schematic/editorTypes';
 
 // ---------------------------------------------------------------------------
