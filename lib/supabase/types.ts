@@ -452,6 +452,45 @@ export type Database = {
         }
         Relationships: []
       }
+      schematic_comments: {
+        Row: {
+          created_at: string
+          id: string
+          schematic_id: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          schematic_id: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          schematic_id?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schematic_comments_schematic_id_fkey"
+            columns: ["schematic_id"]
+            isOneToOne: false
+            referencedRelation: "shared_schematics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schematic_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schematic_components: {
         Row: {
           component_id: string | null
@@ -484,6 +523,50 @@ export type Database = {
             columns: ["schematic_id"]
             isOneToOne: false
             referencedRelation: "schematics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_schematics: {
+        Row: {
+          created_at: string
+          id: string
+          likes: number
+          owner_id: string
+          slug: string
+          stars: number
+          state_json: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          likes?: number
+          owner_id: string
+          slug: string
+          stars?: number
+          state_json: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          likes?: number
+          owner_id?: string
+          slug?: string
+          stars?: number
+          state_json?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_schematics_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

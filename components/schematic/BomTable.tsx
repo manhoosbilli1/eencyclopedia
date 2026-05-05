@@ -3,11 +3,12 @@
 /**
  * BOM (Bill of Materials) table for the interactive schematic editor.
  * Supports grouping by value+libId, inline cell editing, column sorting,
- * and CSV export.
+ * CSV export, and LCSC component lookup per row plus "Auto-fill MPNs".
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { EditorComponent } from '@/components/schematic/editorTypes';
+import LcscPeek from '@/components/schematic/LcscPeek';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -210,12 +211,30 @@ function Th({ label, col, current, dir, onClick, className = '' }: ThProps) {
 }
 
 // ---------------------------------------------------------------------------
+// LCSC search button
+// ---------------------------------------------------------------------------
+
+const LCSC_API = 'https://jlcsearch.tscircuit.com/api/search';
+
+interface AutoFillStatus {
+  filled: number;
+  total: number;
+  running: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // BomTable
 // ---------------------------------------------------------------------------
 
 export default function BomTable({ components, onClose, onUpdateComponent }: BomTableProps) {
   const [sortCol, setSortCol] = useState<SortCol>('refs');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  // groupKey of the row whose LCSC panel is open
+  const [openPeekKey, setOpenPeekKey] = useState<string | null>(null);
+  // Auto-fill status
+  const [autoFill, setAutoFill] = useState<AutoFillStatus | null>(null);
+  // Ref to the currently open peek button cell so we can position the panel
+  const peekCellRefs = useRef<Map<string, HTMLTableCellElement>>(new Map());
 
   const rawRows = buildBomRows(components);
   const rows = sortRows(rawRows, sortCol, sortDir);
@@ -250,12 +269,77 @@ export default function BomTable({ components, onClose, onUpdateComponent }: Bom
       }
     };
 
+  /** Apply an LCSC pick to all IDs in a row. */
+  const applyLcscPick = useCallback(
+    (row: BomRow, mpn: string) => {
+      if (!onUpdateComponent) return;
+      for (const id of row.ids) {
+        onUpdateComponent(id, 'mpn', mpn);
+      }
+      setOpenPeekKey(null);
+    },
+    [onUpdateComponent],
+  );
+
+  /**
+   * "Auto-fill MPNs" — for every row with no MPN, fetch the top LCSC result
+   * for its value and apply the first lcsc_part_number returned.
+   */
+  const handleAutoFill = useCallback(async () => {
+    if (!onUpdateComponent) return;
+    const candidates = rawRows.filter((r) => !r.mpn && r.value.trim());
+    if (candidates.length === 0) return;
+
+    setAutoFill({ filled: 0, total: candidates.length, running: true });
+    let filled = 0;
+
+    for (const row of candidates) {
+      try {
+        const url = `${LCSC_API}?q=${encodeURIComponent(row.value.trim())}&limit=1&full=true`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        // We only need lcsc_part_number from the first hit
+        const data = await res.json() as { components?: Array<{ lcsc_part_number: string }> };
+        const first = data.components?.[0];
+        if (first?.lcsc_part_number) {
+          for (const id of row.ids) {
+            onUpdateComponent(id, 'mpn', first.lcsc_part_number);
+          }
+          filled += 1;
+        }
+      } catch {
+        // silently skip failures for individual parts
+      }
+      setAutoFill((prev) => prev ? { ...prev, filled } : null);
+    }
+
+    setAutoFill({ filled, total: candidates.length, running: false });
+    // Auto-clear the status after 4 s
+    setTimeout(() => setAutoFill(null), 4000);
+  }, [rawRows, onUpdateComponent]);
+
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-card shadow-lg">
       {/* Header bar */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-foreground">Bill of Materials</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Auto-fill MPNs */}
+          {onUpdateComponent && (
+            <button
+              type="button"
+              onClick={() => { void handleAutoFill(); }}
+              disabled={autoFill?.running ?? false}
+              className="rounded border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              title="Search LCSC for the best matching part for every component without an MPN"
+            >
+              {autoFill?.running
+                ? `Filling… ${autoFill.filled}/${autoFill.total}`
+                : autoFill
+                ? `Filled ${autoFill.filled}/${autoFill.total} MPNs`
+                : 'Auto-fill MPNs'}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleCsvExport}
@@ -284,48 +368,104 @@ export default function BomTable({ components, onClose, onUpdateComponent }: Bom
               <Th label="MPN" col="mpn" current={sortCol} dir={sortDir} onClick={handleSort} />
               <Th label="Footprint" col="footprint" current={sortCol} dir={sortDir} onClick={handleSort} />
               <Th label="Qty" col="qty" current={sortCol} dir={sortDir} onClick={handleSort} className="text-right" />
+              {/* Extra column header for LCSC search icon */}
+              <th
+                scope="col"
+                className="border-b border-border bg-card px-2 py-2"
+                aria-label="LCSC lookup"
+              />
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => (
-              <tr
-                key={row.groupKey}
-                className={idx % 2 === 0 ? 'bg-background' : 'bg-card'}
-              >
-                {/* Refs — not directly editable here; designators are edited per component */}
-                <td className="border-b border-border/50 py-2 pl-4 pr-3 font-mono text-xs text-muted-foreground">
-                  {row.refs}
-                </td>
-                {/* Value */}
-                <td className="border-b border-border/50 px-2 py-2 text-foreground">
-                  <EditableCell
-                    value={row.value}
-                    onSave={makeGroupUpdater(row, 'value')}
-                  />
-                </td>
-                {/* MPN */}
-                <td className="border-b border-border/50 px-2 py-2 text-foreground">
-                  <EditableCell
-                    value={row.mpn}
-                    onSave={makeGroupUpdater(row, 'mpn')}
-                  />
-                </td>
-                {/* Footprint */}
-                <td className="border-b border-border/50 px-2 py-2 text-foreground">
-                  <EditableCell
-                    value={row.footprint}
-                    onSave={makeGroupUpdater(row, 'footprint')}
-                  />
-                </td>
-                {/* Qty */}
-                <td className="border-b border-border/50 py-2 pl-2 pr-4 text-right tabular-nums text-foreground">
-                  {row.qty}
-                </td>
-              </tr>
-            ))}
+            {rows.map((row, idx) => {
+              const isPeekOpen = openPeekKey === row.groupKey;
+              /** Search term: prefer MPN, fall back to value */
+              const peekQuery = row.mpn.trim() || row.value.trim();
+
+              return (
+                <tr
+                  key={row.groupKey}
+                  className={idx % 2 === 0 ? 'bg-background' : 'bg-card'}
+                >
+                  {/* Refs — not directly editable here; designators are edited per component */}
+                  <td className="border-b border-border/50 py-2 pl-4 pr-3 font-mono text-xs text-muted-foreground">
+                    {row.refs}
+                  </td>
+                  {/* Value */}
+                  <td className="border-b border-border/50 px-2 py-2 text-foreground">
+                    <EditableCell
+                      value={row.value}
+                      onSave={makeGroupUpdater(row, 'value')}
+                    />
+                  </td>
+                  {/* MPN */}
+                  <td className="border-b border-border/50 px-2 py-2 text-foreground">
+                    <EditableCell
+                      value={row.mpn}
+                      onSave={makeGroupUpdater(row, 'mpn')}
+                    />
+                  </td>
+                  {/* Footprint */}
+                  <td className="border-b border-border/50 px-2 py-2 text-foreground">
+                    <EditableCell
+                      value={row.footprint}
+                      onSave={makeGroupUpdater(row, 'footprint')}
+                    />
+                  </td>
+                  {/* Qty */}
+                  <td className="border-b border-border/50 py-2 pl-2 pr-4 text-right tabular-nums text-foreground">
+                    {row.qty}
+                  </td>
+                  {/* LCSC search button + inline peek panel */}
+                  <td
+                    ref={(el) => {
+                      if (el) peekCellRefs.current.set(row.groupKey, el);
+                      else peekCellRefs.current.delete(row.groupKey);
+                    }}
+                    className="relative border-b border-border/50 px-2 py-2"
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Search LCSC for ${row.value}`}
+                      title="Search LCSC"
+                      onClick={() =>
+                        setOpenPeekKey((prev) =>
+                          prev === row.groupKey ? null : row.groupKey,
+                        )
+                      }
+                      className={`rounded p-1 text-xs transition-colors ${
+                        isPeekOpen
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }`}
+                    >
+                      {/* Magnifying glass icon */}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </button>
+
+                    {isPeekOpen && (
+                      <LcscPeek
+                        query={peekQuery}
+                        onSelect={(mpn) => applyLcscPick(row, mpn)}
+                        onClose={() => setOpenPeekKey(null)}
+                      />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                   No components yet.
                 </td>
               </tr>

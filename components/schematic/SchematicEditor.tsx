@@ -29,6 +29,7 @@ import React, {
 import { drawSymbol } from '@/lib/kicad/symbols';
 import { SymbolBrowser } from './SymbolBrowser';
 import BomTable from './BomTable';
+import { PropertiesPanel } from './PropertiesPanel';
 import type { CatalogEntry } from '@/lib/kicad/symbolCatalog';
 import type {
   Clipboard,
@@ -229,6 +230,24 @@ function compBBox(comp: EditorComponent): { x: number; y: number; w: number; h: 
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
+/** Hit-test a world-space point against all components, returning the topmost hit or null */
+function hitTestComponent(worldX: number, worldY: number, components: EditorComponent[]): EditorComponent | null {
+  // Iterate in reverse so the visually-topmost (last-drawn) component wins
+  for (let i = components.length - 1; i >= 0; i--) {
+    const c = components[i];
+    if (!c) continue;
+    const draw = drawSymbol(c.libId, c.value);
+    // For rotated bounding boxes use the axis-aligned envelope
+    // For 90/270 deg the width and height axes swap
+    const hw = (c.rot === 90 || c.rot === 270 ? draw.halfHeight : draw.halfWidth) + 1;
+    const hh = (c.rot === 90 || c.rot === 270 ? draw.halfWidth : draw.halfHeight) + 1;
+    const dx = Math.abs(worldX - c.x);
+    const dy = Math.abs(worldY - c.y);
+    if (dx <= hw && dy <= hh) return c;
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // State & action types
 // ---------------------------------------------------------------------------
@@ -241,6 +260,7 @@ type Action =
   | { type: 'ROTATE_COMP'; id: string }
   | { type: 'MIRROR_COMP'; id: string }
   | { type: 'UPDATE_COMP'; id: string; value: string; designator: string }
+  | { type: 'UPDATE_COMP_PARTIAL'; id: string; changes: Partial<EditorComponent> }
   | { type: 'UPDATE_COMP_FIELD'; id: string; field: 'value' | 'designator' | 'mpn' | 'footprint'; fieldValue: string }
   | { type: 'ADD_WIRE'; wire: EditorWire }
   | { type: 'ADD_LABEL'; label: EditorLabel }
@@ -332,6 +352,14 @@ function editorReducer(state: EditorState, action: Action): EditorState {
         ...state,
         components: state.components.map((c) =>
           c.id === action.id ? { ...c, [action.field]: action.fieldValue } : c,
+        ),
+      };
+
+    case 'UPDATE_COMP_PARTIAL':
+      return {
+        ...state,
+        components: state.components.map((c) =>
+          c.id === action.id ? { ...c, ...action.changes } : c,
         ),
       };
 
@@ -572,6 +600,14 @@ export function SchematicEditor({
 
   // Inline edit for text annotations
   const [editingText, setEditingText] = useState<{ id: string; text: string } | null>(null);
+
+  // Label drag state: which component label is being dragged
+  const labelDragRef = useRef<{
+    compId: string;
+    field: 'designatorOffset' | 'valueOffset';
+    startWorld: Point;
+    startOffset: { x: number; y: number };
+  } | null>(null);
 
   // Symbol browser
   const [showBrowser, setShowBrowser] = useState(false);
@@ -889,6 +925,37 @@ export function SchematicEditor({
 
       // Rectangle selection start (select mode, empty area click)
       if (mode === 'select') {
+        // Bounding-box hit test first — allows clicking anywhere inside the component
+        const hitComp = hitTestComponent(raw.x, raw.y, state.components);
+        if (hitComp && !readOnly) {
+          if (!e.shiftKey && !selection.has(hitComp.id)) {
+            setSelection(new Set([hitComp.id]));
+          } else if (e.shiftKey) {
+            setSelection((prev) => {
+              const next = new Set(prev);
+              if (next.has(hitComp.id)) next.delete(hitComp.id);
+              else next.add(hitComp.id);
+              return next;
+            });
+            return;
+          }
+          const dragIds = selection.has(hitComp.id)
+            ? [...selection].filter((id) => state.components.some((c) => c.id === id))
+            : [hitComp.id];
+          const startPositions = new Map<string, Point>();
+          for (const id of dragIds) {
+            const c = state.components.find((cc) => cc.id === id);
+            if (c) startPositions.set(id, { x: c.x, y: c.y });
+          }
+          dragRef.current = {
+            compIds: dragIds,
+            startPositions,
+            startWorld: raw,
+            moved: false,
+          };
+          return;
+        }
+
         const snapPt = findSnapPoint(raw, state);
         if (!snapPt) {
           rectSelectRef.current = { start: raw, end: raw };
@@ -896,7 +963,7 @@ export function SchematicEditor({
         }
       }
     },
-    [viewport, screenToWorld, mode, state],
+    [viewport, screenToWorld, mode, state, selection, readOnly],
   );
 
   // ---------------------------------------------------------------------------
@@ -917,6 +984,25 @@ export function SchematicEditor({
           panX: pan.startPanX + (e.clientX - pan.startMouseX),
           panY: pan.startPanY + (e.clientY - pan.startMouseY),
         }));
+        return;
+      }
+
+      // Label drag
+      if (labelDragRef.current) {
+        const ld = labelDragRef.current;
+        const delta = {
+          x: raw.x - ld.startWorld.x,
+          y: raw.y - ld.startWorld.y,
+        };
+        const newOffset = {
+          x: ld.startOffset.x + delta.x,
+          y: ld.startOffset.y + delta.y,
+        };
+        dispatch({
+          type: 'UPDATE_COMP_PARTIAL',
+          id: ld.compId,
+          changes: { [ld.field]: newOffset },
+        });
         return;
       }
 
@@ -981,6 +1067,11 @@ export function SchematicEditor({
   const handleMouseUp = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
       panRef.current = null;
+
+      if (labelDragRef.current) {
+        labelDragRef.current = null;
+        return;
+      }
 
       if (dragRef.current) {
         dragRef.current = null;
@@ -1416,6 +1507,9 @@ export function SchematicEditor({
 
   const hasMultipleSelected = selectedComps.length >= 2;
 
+  // Single selected component — drives PropertiesPanel
+  const singleSelectedComp = selection.size === 1 ? (selectedComps[0] ?? null) : null;
+
   // ---------------------------------------------------------------------------
   // Align dispatch helper
   // ---------------------------------------------------------------------------
@@ -1482,6 +1576,17 @@ export function SchematicEditor({
             }}
           />
         </div>
+      )}
+
+      {/* Properties panel — slides in from right when a single component is selected */}
+      {!showBrowser && !showBom && (
+        <PropertiesPanel
+          component={singleSelectedComp}
+          onUpdate={(id, changes) =>
+            dispatch({ type: 'UPDATE_COMP_PARTIAL', id, changes })
+          }
+          onClose={() => setSelection(new Set())}
+        />
       )}
 
       {/* Toolbar */}

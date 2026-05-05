@@ -19,6 +19,9 @@ export interface EditorComponent {
   footprint?: string;
   datasheet?: string;
   mpn?: string;
+  // Draggable label offsets (mm relative to component centre)
+  designatorOffset?: { x: number; y: number };
+  valueOffset?: { x: number; y: number };
 }
 
 export interface EditorWire {
