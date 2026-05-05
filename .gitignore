@@ -1,3 +1,7 @@
+# secrets / local config — never commit these
+claude-flow.config.json
+.claude-flow/
+
 # dependencies
 /node_modules
 /.pnp
