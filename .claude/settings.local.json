@@ -21,7 +21,11 @@
       "Bash(awk '{print $1}')",
       "mcp__ruflo__terminal_execute",
       "Bash(grep -E '\\\\.\\(ts|tsx\\)$')",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(pnpm test *)",
+      "Bash(kill -9 27870 27894)",
+      "Bash(rm -f /mnt/c/Users/capis/Desktop/server/eencyclopedia/eencyclopedia/.git/index.lock)",
+      "Bash(gh auth *)"
     ]
   },
   "enableAllProjectMcpServers": true,
