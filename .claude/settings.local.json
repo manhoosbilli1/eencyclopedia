@@ -25,7 +25,8 @@
       "Bash(pnpm test *)",
       "Bash(kill -9 27870 27894)",
       "Bash(rm -f /mnt/c/Users/capis/Desktop/server/eencyclopedia/eencyclopedia/.git/index.lock)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(kill -0 9796)"
     ]
   },
   "enableAllProjectMcpServers": true,

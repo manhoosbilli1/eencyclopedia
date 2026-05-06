@@ -86,7 +86,12 @@ const UploadSchema = z.object({
   visibility: VISIBILITY.default('private'),
 });
 
-const MAX_FILE_BYTES = 256 * 1024; // 256 KiB. Storage bucket itself caps at 512 KiB.
+// 5 MiB upload ceiling. Real-world full-project schematics easily exceed
+// 1 MiB once lib_symbols are inlined. Server-action body limit in
+// next.config.js is 5 MB. Storage bucket capacity is set per-project via
+// the Supabase dashboard; bump it there in lockstep.
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_KB_LABEL = `${(MAX_FILE_BYTES / 1024 / 1024).toFixed(1)} MiB`;
 const ALLOWED_EXT = '.kicad_sch';
 // V0 closed-beta soft quota: each user can own at most 10 circuits at a time.
 // Past that, they need to delete one before uploading another. The cap is
@@ -141,7 +146,7 @@ export async function createSchematic(
 
   if (file && typeof file !== 'string' && file instanceof Blob && file.size > 0) {
     if (file.size > MAX_FILE_BYTES) {
-      return { ok: false, error: `File too large (max ${MAX_FILE_BYTES / 1024} KiB).` };
+      return { ok: false, error: `File too large (max ${MAX_FILE_KB_LABEL}). Tip: shrink the file or surround the sub-circuit you want to share with a rectangle labelled "eencyclopedia" so only that region is ingested.` };
     }
     if (file instanceof File && !file.name.toLowerCase().endsWith(ALLOWED_EXT)) {
       return { ok: false, error: `File must end in ${ALLOWED_EXT}.` };
@@ -656,7 +661,7 @@ export async function bulkSeedCircuits(
         continue;
       }
       if (file.size > MAX_FILE_BYTES) {
-        errors.push({ filename, code: 'TOO_LARGE', message: `> ${MAX_FILE_BYTES / 1024} KiB` });
+        errors.push({ filename, code: 'TOO_LARGE', message: `> ${MAX_FILE_KB_LABEL}` });
         continue;
       }
       const source = await file.text();
@@ -802,8 +807,8 @@ function buildDerivedArtifacts(source: string, title: string): DerivedArtifacts 
     throw new KiCadParseError(
       'TOO_MANY_COMPONENTS',
       ingest.matched
-        ? `Bounding box has ${ast.symbols.length} components; cap is ${MAX_COMPONENTS_V0}. Shrink the box or split into multiple uploads.`
-        : `V0 caps circuits at ${MAX_COMPONENTS_V0} components; this has ${ast.symbols.length}.`,
+        ? `The "eencyclopedia" box contains ${ast.symbols.length} components; closed-beta cap is ${MAX_COMPONENTS_V0}. Shrink the box around a smaller sub-circuit, or split your design into multiple uploads.`
+        : `This schematic has ${ast.symbols.length} components; closed-beta cap is ${MAX_COMPONENTS_V0}. Tip: in KiCad, draw a rectangle around the sub-circuit you want to share and add a text annotation reading "eencyclopedia" near its top-left corner — re-export and only that region will be ingested.`,
     );
   }
 

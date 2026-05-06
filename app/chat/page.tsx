@@ -1,97 +1,71 @@
+/**
+ * /chat is intentionally disabled in the closed beta.
+ *
+ * The original streaming chat had reliability issues (provider auth, RAG
+ * tuning, and prompt-injection hardening still WIP). Rather than ship a
+ * half-working flow, we surface a clear "open to contributions" panel and
+ * point interested folks at the GitHub repo. Re-enabling is a matter of
+ * restoring the old chat-client.tsx call-site once the underlying issues
+ * are resolved.
+ */
+
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { isPlaceholderUsername } from '@/lib/auth/username';
-import { ChatClient } from './chat-client';
 
 export const metadata: Metadata = {
-  title: 'Chat',
-  description: 'Ask eencyclopedia about a circuit, part, or design tradeoff.',
+  title: 'Chat — coming soon',
+  description: 'AI chat is paused while we figure out the pipeline.',
+  robots: { index: false, follow: false },
 };
 
-export default async function ChatPage({
-  searchParams,
-}: {
-  searchParams: { circuit?: string; q?: string };
-}) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const REPO_URL = 'https://github.com/manhoosbilli1/eencyclopedia';
 
-  if (!user) redirect('/login?next=/chat');
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('username')
-    .eq('id', user.id)
-    .single();
-  const username =
-    profile && typeof (profile as { username?: string }).username === 'string'
-      ? (profile as { username: string }).username
-      : null;
-  if (username && isPlaceholderUsername(username)) {
-    redirect('/onboarding');
-  }
-
-  let activeCircuit:
-    | {
-        id: string;
-        title: string;
-      }
-    | null = null;
-
-  if (searchParams.circuit) {
-    const { data: circuit } = await supabase
-      .from('schematics')
-      .select('id, title')
-      .eq('id', searchParams.circuit)
-      .maybeSingle();
-
-    if (circuit) {
-      activeCircuit = {
-        id: String((circuit as { id: string }).id),
-        title: String((circuit as { title: string }).title),
-      };
-    }
-  }
-
+export default function ChatPage() {
   return (
-    <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-5xl flex-col px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Chat</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Ask about a schematic, design review concern, rail behavior, or a quick
-            component-level tradeoff. The AI answers in electronics mode only.
-          </p>
-        </div>
-        {activeCircuit ? (
-          <Link
-            href={`/circuit/${activeCircuit.id}`}
-            className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground underline hover:text-foreground"
-          >
-            Back to {activeCircuit.title}
-          </Link>
-        ) : null}
-      </header>
+    <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-2xl flex-col items-center justify-center px-6 py-16 text-center">
+      <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+        /chat — paused
+      </span>
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+        We haven&apos;t figured this one out yet.
+      </h1>
+      <p className="mt-5 max-w-prose text-base leading-relaxed text-muted-foreground">
+        The streaming RAG chat surface is intentionally disabled while we
+        sort out provider routing, retrieval tuning, and prompt-injection
+        hardening. Rather than ship a flaky chat we&apos;d rather show you
+        nothing — and ask for help.
+      </p>
+      <p className="mt-3 max-w-prose text-base leading-relaxed text-muted-foreground">
+        If you&apos;d like to wire it back up, the source is on GitHub and
+        contributions are very welcome.
+      </p>
 
-      {activeCircuit ? (
-        <section className="mt-6 border-y border-border py-3">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-            Active circuit
-          </p>
-          <p className="mt-1 text-sm text-foreground">{activeCircuit.title}</p>
-        </section>
-      ) : null}
-
-      <div className="mt-6 flex-1">
-        <ChatClient
-          activeCircuit={activeCircuit}
-          initialQuestion={typeof searchParams.q === 'string' ? searchParams.q : ''}
-        />
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
+        >
+          ↗ Contribute on GitHub
+        </a>
+        <Link
+          href="/library"
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+        >
+          Browse the library
+        </Link>
+        <Link
+          href="/calc"
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium hover:bg-muted"
+        >
+          Use the calculators
+        </Link>
       </div>
+
+      <p className="mt-12 max-w-prose font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+        Tracked on the <Link href="/features" className="underline hover:text-foreground">features page</Link>.
+      </p>
     </main>
   );
 }

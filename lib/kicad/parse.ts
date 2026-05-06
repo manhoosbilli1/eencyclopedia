@@ -167,13 +167,13 @@ export class KiCadParseError extends Error {
   }
 }
 
-// V0 hard cap. Originally 5 (PLAN §2); raised to 50 once the renderer's
-// auto-scale + lib_symbols pin alignment proved out on real KiCad uploads.
-// At 50 a single circuit covers most useful sub-systems (full op-amp stage,
-// LDO with decoupling + reverse-protection, MCU minimum boot, level shifters).
-// schematics.component_count column has its own check (between 0 and 5);
-// migration 0006 lifts that to (between 0 and 50).
-export const MAX_COMPONENTS_V0 = 50;
+// Hard cap on components per circuit, AFTER any "eencyclopedia" bounding-box
+// crop has been applied. 200 covers a full reference design (e.g. an MCU
+// dev board: MCU + crystal + decoupling × 10 + USB + power tree + LEDs +
+// connectors). Bigger projects should use the bounding-box ingest to share a
+// curated sub-circuit. The schematics.component_count column constraint is
+// kept in lockstep via migration 0011.
+export const MAX_COMPONENTS_V0 = 200;
 
 // Tested KiCad eeschema file format range. Outside this we *warn* (still parse)
 // because the format is largely additive across minor versions. Bumped to

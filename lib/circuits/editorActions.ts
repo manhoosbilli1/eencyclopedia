@@ -26,7 +26,7 @@ import { MAX_CIRCUITS_PER_USER } from '@/lib/circuits/constants';
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_FILE_BYTES = 256 * 1024; // 256 KiB
+const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MiB — matches createSchematic
 
 // ---------------------------------------------------------------------------
 // saveSchematicEdits — owner overwrite
@@ -54,7 +54,7 @@ export async function saveSchematicEdits(
     return { ok: false, error: 'No source provided.' };
   }
   if (source.length > MAX_FILE_BYTES) {
-    return { ok: false, error: `Source too large (max ${MAX_FILE_BYTES / 1024} KiB).` };
+    return { ok: false, error: `Source too large (max ${(MAX_FILE_BYTES / 1024 / 1024).toFixed(1)} MiB).` };
   }
 
   const { data: row, error: rowErr } = await supabase
@@ -210,7 +210,7 @@ export async function forkSchematic(
     return { ok: false, error: 'No source provided.' };
   }
   if (source.length > MAX_FILE_BYTES) {
-    return { ok: false, error: `Source too large (max ${MAX_FILE_BYTES / 1024} KiB).` };
+    return { ok: false, error: `Source too large (max ${(MAX_FILE_BYTES / 1024 / 1024).toFixed(1)} MiB).` };
   }
 
   // Per-user circuit cap applies to forks too.

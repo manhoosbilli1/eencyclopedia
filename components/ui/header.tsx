@@ -61,8 +61,18 @@ export async function Header() {
                 </Link>
                 <Link href="/library">Library</Link>
                 <Link href="/schematic/new">Editor</Link>
-                <Link href="/calc">Calculator</Link>
-                <Link href="/chat">Chat</Link>
+                <Link href="/calc">Calculators</Link>
+                <Link href="/wiki">Wiki</Link>
+                <Link href="/features">Features</Link>
+                <Link href="/suggestions">Suggestions</Link>
+                <a
+                  href="https://github.com/manhoosbilli1/eencyclopedia"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open the GitHub repo in a new tab"
+                >
+                  Contribute ↗
+                </a>
                 <Link href="/favorites" title="Starred circuits">
                   ★
                 </Link>
@@ -91,6 +101,7 @@ export async function Header() {
                   Finish setup
                 </Link>
                 <Link href="/schematic/new">Editor</Link>
+                <Link href="/wiki">Wiki</Link>
                 <span className="sep" aria-hidden />
                 <form action={signOut} style={{ display: 'inline' }}>
                   <button type="submit" className="btn btn-ghost btn-sm">
@@ -101,8 +112,17 @@ export async function Header() {
             )
           ) : (
             <>
-              <Link href="/calc">Calculator</Link>
+              <Link href="/calc">Calculators</Link>
               <Link href="/schematic/new">Editor</Link>
+              <Link href="/wiki">Wiki</Link>
+              <Link href="/features">Features</Link>
+              <a
+                href="https://github.com/manhoosbilli1/eencyclopedia"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Contribute ↗
+              </a>
               <Link href="/login" className="btn btn-primary btn-sm">
                 Sign in
               </Link>
