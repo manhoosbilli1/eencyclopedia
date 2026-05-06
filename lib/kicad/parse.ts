@@ -99,23 +99,58 @@ export interface LibPin {
   length: number; // in mm; rarely needed but kept for completeness
 }
 
+/**
+ * Geometric primitives drawn inside a `(lib_symbols (symbol …))` block.
+ * Used by the renderer to reproduce KiCad-authentic component bodies for
+ * uploaded files instead of falling back to a generic glyph. Coordinates
+ * are in the lib_symbol's own local frame (mm).
+ */
+export type LibShape =
+  | { kind: 'rectangle'; x1: number; y1: number; x2: number; y2: number; filled: boolean }
+  | { kind: 'polyline'; points: Array<{ x: number; y: number }>; filled: boolean }
+  | { kind: 'circle'; cx: number; cy: number; r: number; filled: boolean }
+  | { kind: 'arc'; sx: number; sy: number; mx: number; my: number; ex: number; ey: number; filled: boolean }
+  | { kind: 'text'; text: string; x: number; y: number; rot: number; size: number };
+
 export interface LibSymbolDef {
   libId: string; // "Device:R", "Device:LED", etc.
   pins: LibPin[];
+  /** Body geometry — rectangles, polylines, circles, arcs, text annotations. */
+  shapes: LibShape[];
+  /** True when the lib_symbol declares (power) — pin labels rendered differently. */
+  isPower: boolean;
+}
+
+/**
+ * A free-standing shape on the schematic itself (NOT inside a lib_symbol).
+ * Used to detect upload bounding boxes ("eencyclopedia" labelled rectangle).
+ */
+export interface SheetRectangle {
+  x1: number; y1: number; x2: number; y2: number;
+}
+
+export interface SheetText {
+  text: string;
+  x: number; y: number;
+  rot: number;
 }
 
 export interface KiCadSchematic {
   meta: KiCadMeta;
   /**
-   * Map from lib_id → pin geometry. Populated from the embedded
-   * `(lib_symbols …)` block. Used by the renderer to compute *world*
-   * pin positions per instance.
+   * Map from lib_id → pin geometry + body shapes. Populated from the
+   * embedded `(lib_symbols …)` block. Used by the renderer to compute
+   * *world* pin positions per instance and to draw KiCad-authentic bodies.
    */
   libSymbols: Map<string, LibSymbolDef>;
   symbols: Symbol[];
   wires: Wire[];
   junctions: Junction[];
   labels: Label[];
+  /** Free-standing rectangles on the schematic sheet (for bounding-box ingest). */
+  sheetRectangles: SheetRectangle[];
+  /** Free-standing text annotations on the sheet. */
+  sheetTexts: SheetText[];
   warnings: string[];
 }
 
@@ -219,6 +254,8 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
       const libIdRaw = arg(sym, 0);
       if (!libIdRaw) continue;
       const pins: LibPin[] = [];
+      const shapes: LibShape[] = [];
+      const isPower = !!firstChild(sym, 'power');
       // Outer symbol may have direct (pin …) entries (rare) and nested
       // (symbol "<unit>_n_m" …) blocks. Walk nested-symbol pins via findAll
       // so we capture all units regardless of nesting depth.
@@ -243,10 +280,17 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
           length: lenForm ? (argNum(lenForm, 0) ?? 0) : 0,
         });
       }
-      // De-dup by pin number (multi-unit parts repeat pins per unit).
+      // Body shapes — walk the entire symbol including nested unit symbols.
+      collectLibShapes(sym, shapes);
+      // De-dup pins by number (multi-unit parts repeat pins per unit).
       const uniq = new Map<string, LibPin>();
       for (const p of pins) if (!uniq.has(p.number)) uniq.set(p.number, p);
-      libSymbols.set(libIdRaw, { libId: libIdRaw, pins: Array.from(uniq.values()) });
+      libSymbols.set(libIdRaw, {
+        libId: libIdRaw,
+        pins: Array.from(uniq.values()),
+        shapes,
+        isPower,
+      });
     }
   }
 
@@ -363,6 +407,35 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
     }
   }
 
+  // Free-standing sheet shapes — used for "eencyclopedia bounding box" ingest.
+  const sheetRectangles: SheetRectangle[] = [];
+  for (const r of children(ast, 'rectangle')) {
+    const startForm = firstChild(r, 'start');
+    const endForm = firstChild(r, 'end');
+    if (!startForm || !endForm) continue;
+    const x1 = argNum(startForm, 0);
+    const y1 = argNum(startForm, 1);
+    const x2 = argNum(endForm, 0);
+    const y2 = argNum(endForm, 1);
+    if (x1 === undefined || y1 === undefined || x2 === undefined || y2 === undefined) continue;
+    sheetRectangles.push({
+      x1: Math.min(x1, x2), y1: Math.min(y1, y2),
+      x2: Math.max(x1, x2), y2: Math.max(y1, y2),
+    });
+  }
+
+  const sheetTexts: SheetText[] = [];
+  for (const t of children(ast, 'text')) {
+    const text = arg(t, 0);
+    const at = firstChild(t, 'at');
+    if (!text || !at) continue;
+    const x = argNum(at, 0);
+    const y = argNum(at, 1);
+    const rot = argNum(at, 2) ?? 0;
+    if (x === undefined || y === undefined) continue;
+    sheetTexts.push({ text, x, y, rot });
+  }
+
   return {
     meta: { version, generator },
     libSymbols,
@@ -370,8 +443,101 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
     wires,
     junctions,
     labels,
+    sheetRectangles,
+    sheetTexts,
     warnings,
   };
+}
+
+// ---------------------------------------------------------------------------
+// lib_symbol shape extractor
+// ---------------------------------------------------------------------------
+
+function collectLibShapes(node: SExp, out: LibShape[]): void {
+  if (!isList(node)) return;
+  // Walk every direct child item (not just lists with a specific tag).
+  for (const child of node.items) {
+    if (!isList(child)) continue;
+    const tag = head(child);
+    if (tag === 'rectangle') {
+      const s = firstChild(child, 'start');
+      const e = firstChild(child, 'end');
+      if (s && e) {
+        const x1 = argNum(s, 0); const y1 = argNum(s, 1);
+        const x2 = argNum(e, 0); const y2 = argNum(e, 1);
+        if (x1 !== undefined && y1 !== undefined && x2 !== undefined && y2 !== undefined) {
+          out.push({ kind: 'rectangle', x1, y1, x2, y2, filled: hasYellowFill(child) });
+        }
+      }
+    } else if (tag === 'polyline') {
+      const ptsForm = firstChild(child, 'pts');
+      const pts: Array<{ x: number; y: number }> = [];
+      if (ptsForm) {
+        for (const xy of children(ptsForm, 'xy')) {
+          const x = argNum(xy, 0); const y = argNum(xy, 1);
+          if (x !== undefined && y !== undefined) pts.push({ x, y });
+        }
+      }
+      if (pts.length >= 2) out.push({ kind: 'polyline', points: pts, filled: hasYellowFill(child) });
+    } else if (tag === 'circle') {
+      const c = firstChild(child, 'center');
+      const r = firstChild(child, 'radius');
+      if (c && r) {
+        const cx = argNum(c, 0); const cy = argNum(c, 1);
+        const rad = argNum(r, 0);
+        if (cx !== undefined && cy !== undefined && rad !== undefined) {
+          out.push({ kind: 'circle', cx, cy, r: rad, filled: hasYellowFill(child) });
+        }
+      }
+    } else if (tag === 'arc') {
+      const sf = firstChild(child, 'start');
+      const mf = firstChild(child, 'mid');
+      const ef = firstChild(child, 'end');
+      if (sf && mf && ef) {
+        const sx = argNum(sf, 0); const sy = argNum(sf, 1);
+        const mx = argNum(mf, 0); const my = argNum(mf, 1);
+        const ex = argNum(ef, 0); const ey = argNum(ef, 1);
+        if ([sx, sy, mx, my, ex, ey].every((v) => v !== undefined)) {
+          out.push({
+            kind: 'arc',
+            sx: sx as number, sy: sy as number,
+            mx: mx as number, my: my as number,
+            ex: ex as number, ey: ey as number,
+            filled: hasYellowFill(child),
+          });
+        }
+      }
+    } else if (tag === 'text') {
+      const text = arg(child, 0);
+      const at = firstChild(child, 'at');
+      const eff = firstChild(child, 'effects');
+      const font = eff ? firstChild(eff, 'font') : null;
+      const sizeForm = font ? firstChild(font, 'size') : null;
+      const size = sizeForm ? (argNum(sizeForm, 0) ?? 1.27) : 1.27;
+      if (text && at) {
+        const x = argNum(at, 0); const y = argNum(at, 1);
+        const rot = argNum(at, 2) ?? 0;
+        if (x !== undefined && y !== undefined) {
+          out.push({ kind: 'text', text, x, y, rot, size });
+        }
+      }
+    } else if (tag === 'symbol') {
+      // Recurse into nested unit symbols (e.g. R_0_1, R_1_1).
+      collectLibShapes(child, out);
+    }
+  }
+}
+
+function hasYellowFill(shape: SExp): boolean {
+  // KiCad uses (fill (type background)) for the canonical "yellow" body fill
+  // on connectors, ICs, and other symbols where the body fill conveys the
+  // user-defined background colour (yellow by default in KiCad's stock theme).
+  const fill = firstChild(shape, 'fill');
+  if (!fill) return false;
+  const type = firstChild(fill, 'type');
+  if (!type) return false;
+  const v = arg(type, 0);
+  return v === 'background' || v === 'outline';
 }
 
 // ---------------------------------------------------------------------------

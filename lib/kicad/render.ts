@@ -16,6 +16,7 @@
  */
 
 import type { CanonicalSchematic, CanonicalComponent } from './normalise';
+import type { LibShape } from './parse';
 import { drawSymbol, noConnectSvg, type SymbolDraw } from './symbols';
 
 export interface RenderOptions {
@@ -77,9 +78,11 @@ export function renderSvg(c: CanonicalSchematic, opts: RenderOptions): string {
     }
   }
 
-  // Components (body + label)
+  // Components (body + label) — pass the lib_id → body-shapes map so we
+  // render KiCad-authentic geometry when the upload included it.
+  const libGraphics = c.geom.libGraphics ?? new Map();
   for (const comp of c.components) {
-    out.push(renderComponent(comp));
+    out.push(renderComponent(comp, libGraphics));
   }
 
   // Net labels (on top of everything)
@@ -95,20 +98,34 @@ export function renderSvg(c: CanonicalSchematic, opts: RenderOptions): string {
 // Component rendering
 // ---------------------------------------------------------------------------
 
-function renderComponent(comp: CanonicalComponent): string {
+function renderComponent(
+  comp: CanonicalComponent,
+  libGraphics: Map<string, { shapes: LibShape[]; isPower: boolean }>,
+): string {
   const draw: SymbolDraw = drawSymbol(comp.libId, comp.value);
-  const xform = computeGlyphTransform(comp, draw);
+  // Prefer the file's embedded geometry over the generic glyph for fidelity:
+  // an MCU with 32 pins should render with KiCad's actual body & pin layout,
+  // not a 6-pin generic IC block.
+  const libGfx = libGraphics.get(comp.libId);
+  const useEmbedded = libGfx && libGfx.shapes.length > 0 && comp.pins.length > 0;
 
   const isPower =
     comp.designator.startsWith('#') ||
     draw.family === 'gnd' ||
-    draw.family === 'power_rail';
+    draw.family === 'power_rail' ||
+    !!libGfx?.isPower;
 
   const desc = isPower
     ? `<desc>${esc(comp.value)} power symbol</desc>`
     : `<desc>${esc(comp.designator)} — ${esc(comp.value)}</desc>`;
 
-  const glyphGroup = `<g class="comp-body" transform="${xform}">${desc}${draw.svg}</g>`;
+  let glyphGroup: string;
+  if (useEmbedded) {
+    glyphGroup = renderEmbeddedBody(comp, libGfx!.shapes, libGfx!.isPower);
+  } else {
+    const xform = computeGlyphTransform(comp, draw);
+    glyphGroup = `<g class="comp-body" transform="${xform}">${desc}${draw.svg}</g>`;
+  }
 
   // Labels — always visible, positioned relative to world midpoint
   const labelGroup = isPower ? '' : renderComponentLabel(comp);
@@ -123,7 +140,136 @@ function renderComponent(comp: CanonicalComponent): string {
     isPower ? `data-net="${esc(comp.value)}"` : '',
   ].filter(Boolean).join(' ');
 
-  return `<g ${dataAttrs}>${glyphGroup}${labelGroup}</g>`;
+  return `<g ${dataAttrs}>${desc}${glyphGroup}${labelGroup}</g>`;
+}
+
+// ---------------------------------------------------------------------------
+// Embedded body rendering — uses KiCad's own lib_symbols geometry
+// ---------------------------------------------------------------------------
+
+function renderEmbeddedBody(
+  comp: CanonicalComponent,
+  shapes: LibShape[],
+  isPower: boolean,
+): string {
+  // Apply the instance transform (translate to comp pos + rotate + mirror).
+  // We translate in SVG space so each shape's local coords resolve correctly.
+  const tx = comp.pos.x;
+  const ty = comp.pos.y;
+  const r = ((comp.rot % 360) + 360) % 360;
+  const mirror = comp.mirror === 'x'
+    ? ' scale(1 -1)'
+    : comp.mirror === 'y' ? ' scale(-1 1)' : '';
+  const xform = `translate(${n(tx)} ${n(ty)}) rotate(${n(-r)})${mirror}`;
+
+  // KiCad's stock theme paints "background" fills in a soft yellow and
+  // "outline" fills in light yellow. We use the same conventions so connectors,
+  // ICs, and power-symbol bodies look identical to KiCad.
+  const yellowFill = '#fffeb8';
+  const yellowStroke = isPower ? 'currentColor' : '#840000';
+
+  const bodyParts: string[] = [];
+  for (const s of shapes) {
+    bodyParts.push(renderLibShape(s, yellowFill, yellowStroke));
+  }
+  // Pin terminator dots — small circles at every pin endpoint so wires snap
+  // visually even when the symbol body doesn't include explicit pin lines.
+  const pinDots: string[] = [];
+  for (const p of comp.pins) {
+    pinDots.push(
+      `<circle cx="${n(p.world.x)}" cy="${n(p.world.y)}" r="0.45" ` +
+      `fill="currentColor"/>`,
+    );
+  }
+  return (
+    `<g class="comp-body" transform="${xform}">${bodyParts.join('')}</g>` +
+    pinDots.join('')
+  );
+}
+
+function renderLibShape(s: LibShape, fill: string, stroke: string): string {
+  const sw = '0.254'; // KiCad default lib_symbol stroke width (10 mil)
+  switch (s.kind) {
+    case 'rectangle': {
+      const x = Math.min(s.x1, s.x2);
+      const y = Math.min(s.y1, s.y2);
+      const w = Math.abs(s.x2 - s.x1);
+      const h = Math.abs(s.y2 - s.y1);
+      const f = s.filled ? fill : 'none';
+      return (
+        `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" ` +
+        `fill="${f}" stroke="${stroke}" stroke-width="${sw}"/>`
+      );
+    }
+    case 'polyline': {
+      const d = s.points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${n(p.x)} ${n(p.y)}`).join(' ');
+      const f = s.filled ? fill : 'none';
+      return (
+        `<path d="${d}" fill="${f}" stroke="${stroke}" stroke-width="${sw}" ` +
+        `stroke-linecap="round" stroke-linejoin="round"/>`
+      );
+    }
+    case 'circle': {
+      const f = s.filled ? fill : 'none';
+      return (
+        `<circle cx="${n(s.cx)}" cy="${n(s.cy)}" r="${n(s.r)}" ` +
+        `fill="${f}" stroke="${stroke}" stroke-width="${sw}"/>`
+      );
+    }
+    case 'arc': {
+      // KiCad arcs are start → mid → end. Compute centre + radius from those
+      // three points and emit an SVG arc-path. Falls back to a chord if the
+      // points are collinear.
+      const arc = arcFromPoints(s.sx, s.sy, s.mx, s.my, s.ex, s.ey);
+      const f = s.filled ? fill : 'none';
+      if (!arc) {
+        return (
+          `<line x1="${n(s.sx)}" y1="${n(s.sy)}" x2="${n(s.ex)}" y2="${n(s.ey)}" ` +
+          `stroke="${stroke}" stroke-width="${sw}"/>`
+        );
+      }
+      return (
+        `<path d="M ${n(s.sx)} ${n(s.sy)} ` +
+        `A ${n(arc.r)} ${n(arc.r)} 0 ${arc.large} ${arc.sweep} ${n(s.ex)} ${n(s.ey)}" ` +
+        `fill="${f}" stroke="${stroke}" stroke-width="${sw}"/>`
+      );
+    }
+    case 'text': {
+      // Rendered with a small font; rotation applied via SVG transform.
+      const xform = s.rot ? ` transform="rotate(${n(s.rot)} ${n(s.x)} ${n(s.y)})"` : '';
+      return (
+        `<text x="${n(s.x)}" y="${n(s.y)}" font-size="${n(Math.max(0.6, s.size))}" ` +
+        `fill="currentColor"${xform}>${esc(s.text)}</text>`
+      );
+    }
+  }
+}
+
+/** Three-point circle parameters → SVG arc command pieces. Returns null when collinear. */
+function arcFromPoints(
+  sx: number, sy: number, mx: number, my: number, ex: number, ey: number,
+): { r: number; large: 0 | 1; sweep: 0 | 1 } | null {
+  const ax = mx - sx, ay = my - sy;
+  const bx = ex - sx, by = ey - sy;
+  const d = 2 * (ax * by - ay * bx);
+  if (Math.abs(d) < 1e-9) return null; // collinear
+  const aLen = ax * ax + ay * ay;
+  const bLen = bx * bx + by * by;
+  const ux = (by * aLen - ay * bLen) / d;
+  const uy = (ax * bLen - bx * aLen) / d;
+  const r = Math.hypot(ux, uy);
+  // Determine arc direction from cross product of (mid-start) × (end-mid)
+  const cross = (mx - sx) * (ey - my) - (my - sy) * (ex - mx);
+  const sweep: 0 | 1 = cross > 0 ? 0 : 1;
+  // Determine large-arc by signed angular distance from start to end through mid
+  const sa = Math.atan2(sy - (sy + uy), sx - (sx + ux));
+  const ea = Math.atan2(ey - (sy + uy), ex - (sx + ux));
+  const ma = Math.atan2(my - (sy + uy), mx - (sx + ux));
+  const norm = (a: number) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const sweepAngle = norm(ea - sa);
+  const midAngle = norm(ma - sa);
+  const large: 0 | 1 = ((sweepAngle <= Math.PI) === (midAngle <= sweepAngle)) ? 0 : 1;
+  return { r, large, sweep };
 }
 
 function renderComponentLabel(comp: CanonicalComponent): string {

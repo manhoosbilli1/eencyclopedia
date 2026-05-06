@@ -45,10 +45,12 @@ export default async function HomePage() {
       : { href: '/circuit/new', label: 'Upload a circuit' };
   }
 
-  // Popular circuits feed — top 6 public by star_count then recency
+  // Popular circuits feed — top 6 public by star_count then recency.
+  // We pull svg_url (always populated post-upload) and fall back to it when
+  // thumbnail_url is empty so the previews actually render.
   const { data: popularRaw } = await supabase
     .from('schematics')
-    .select('id, title, description, star_count, component_count, created_at, owner_id, thumbnail_url')
+    .select('id, title, description, star_count, component_count, created_at, owner_id, thumbnail_url, svg_url')
     .eq('visibility', 'public')
     .order('star_count', { ascending: false })
     .order('created_at', { ascending: false })
@@ -57,7 +59,8 @@ export default async function HomePage() {
   type FeedItem = {
     id: string; title: string; description: string | null;
     star_count: number; component_count: number;
-    created_at: string; owner_id: string; thumbnail_url: string | null;
+    created_at: string; owner_id: string;
+    thumbnail_url: string | null; svg_url: string | null;
     username?: string | null;
   };
 
@@ -146,12 +149,13 @@ export default async function HomePage() {
                 href={`/circuit/${item.id}`}
                 className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/25"
               >
-                {item.thumbnail_url ? (
+                {(item.thumbnail_url ?? item.svg_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={item.thumbnail_url}
-                    alt=""
-                    className="aspect-[4/3] w-full rounded-md border border-border object-cover"
+                    src={(item.thumbnail_url ?? item.svg_url)!}
+                    alt={item.title}
+                    loading="lazy"
+                    className="aspect-[4/3] w-full rounded-md border border-border bg-background object-contain p-2"
                   />
                 ) : (
                   <div

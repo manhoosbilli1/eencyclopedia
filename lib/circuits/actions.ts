@@ -37,6 +37,7 @@ import {
   type CanonicalSchematic,
 } from '@/lib/kicad/normalise';
 import { renderSvg } from '@/lib/kicad/render';
+import { applyBoundingBoxIngest } from '@/lib/kicad/boundingBox';
 import { MAX_CIRCUITS_PER_USER } from '@/lib/circuits/constants';
 // Provider-agnostic LLM dispatch (Anthropic vs Gemini, controlled by
 // AI_PROVIDER in env). LlmError is the unified error type — code names
@@ -780,14 +781,29 @@ interface StorageUrls {
 }
 
 function buildDerivedArtifacts(source: string, title: string): DerivedArtifacts {
-  const ast = parseKiCadSchematic(source);
+  const rawAst = parseKiCadSchematic(source);
+
+  // Bounding-box ingest: if the file contains a sheet rectangle whose top-left
+  // is labelled "eencyclopedia", crop ingestion to that rectangle. Otherwise
+  // ingest the whole sheet as before.
+  const ingest = applyBoundingBoxIngest(rawAst);
+  const ast = ingest.schematic;
+
   if (ast.symbols.length === 0) {
+    if (ingest.matched) {
+      throw new KiCadParseError(
+        'NO_COMPONENTS_IN_BOX',
+        'The "eencyclopedia" bounding box contains no components. Move the rectangle to surround the components you want to share.',
+      );
+    }
     throw new KiCadParseError('NO_COMPONENTS', 'No components found in this schematic.');
   }
   if (ast.symbols.length > MAX_COMPONENTS_V0) {
     throw new KiCadParseError(
       'TOO_MANY_COMPONENTS',
-      `V0 caps circuits at ${MAX_COMPONENTS_V0} components; this has ${ast.symbols.length}.`,
+      ingest.matched
+        ? `Bounding box has ${ast.symbols.length} components; cap is ${MAX_COMPONENTS_V0}. Shrink the box or split into multiple uploads.`
+        : `V0 caps circuits at ${MAX_COMPONENTS_V0} components; this has ${ast.symbols.length}.`,
     );
   }
 

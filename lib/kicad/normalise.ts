@@ -24,7 +24,7 @@
  *   - toCanonicalJson(sch): typed object for prompt construction
  */
 
-import { transformLocalToWorld, type KiCadSchematic, type Symbol as KiCadSymbol, type Label, type LibPin } from './parse';
+import { transformLocalToWorld, type KiCadSchematic, type Symbol as KiCadSymbol, type Label, type LibPin, type LibShape } from './parse';
 
 // ---------------------------------------------------------------------------
 // Public types — the canonical form
@@ -67,6 +67,9 @@ export interface CanonicalSchematic {
     wires: KiCadSchematic['wires'];
     junctions: KiCadSchematic['junctions'];
     labels: Label[];
+    /** lib_id → body shapes from the file's lib_symbols block.
+     *  Renderer uses these to reproduce KiCad-authentic symbol bodies. */
+    libGraphics?: Map<string, { shapes: LibShape[]; isPower: boolean }>;
   };
 }
 
@@ -95,6 +98,14 @@ export function normalise(sch: KiCadSchematic): CanonicalSchematic {
 
   const nets = Array.from(netNameSet).sort(compareNetNames);
 
+  // Build lib_id → body-shape map for the renderer.
+  const libGraphics = new Map<string, { shapes: LibShape[]; isPower: boolean }>();
+  for (const [libId, def] of sch.libSymbols.entries()) {
+    if (def.shapes.length > 0 || def.isPower) {
+      libGraphics.set(libId, { shapes: def.shapes, isPower: def.isPower });
+    }
+  }
+
   return {
     version: 1,
     units: 'mm',
@@ -104,6 +115,7 @@ export function normalise(sch: KiCadSchematic): CanonicalSchematic {
       wires: sch.wires,
       junctions: sch.junctions,
       labels: sch.labels,
+      libGraphics,
     },
   };
 }

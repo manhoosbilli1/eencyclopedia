@@ -54,26 +54,31 @@ export default async function LibraryPage({
     ? (filter as 'all' | 'mine' | 'public')
     : 'public';
 
-  const baseSelect = supabase.from('schematics').select(ROW_COLUMNS);
+  // IMPORTANT: Supabase query builders are MUTABLE — every `.eq()` / `.neq()`
+  // mutates the underlying instance. Reusing the same `baseSelect` across two
+  // chains caused the second chain to inherit the first's filters, which is
+  // exactly why "all" used to silently return zero rows. Build a fresh select
+  // per query.
+  const newSelect = () => supabase.from('schematics').select(ROW_COLUMNS);
 
   const mineQuery =
     userId && (effectiveFilter === 'all' || effectiveFilter === 'mine')
-      ? applySearch(baseSelect.eq('owner_id', userId), q)
+      ? applySearch(newSelect().eq('owner_id', userId), q)
         .order('created_at', { ascending: false })
         .limit(50)
       : null;
 
-  const publicQuery =
-    effectiveFilter === 'all' || effectiveFilter === 'public'
-      ? applySearch(
-          userId && effectiveFilter === 'all'
-            ? baseSelect.eq('visibility', 'public').neq('owner_id', userId)
-            : baseSelect.eq('visibility', 'public'),
-          q
-        )
-        .order('created_at', { ascending: false })
-        .limit(100)
-      : null;
+  // For "all", show public + unlisted from other users (own circuits go in
+  // the "yours" section). For "public", show only public from anyone.
+  const publicQuery = (() => {
+    if (effectiveFilter !== 'all' && effectiveFilter !== 'public') return null;
+    const visibilities = effectiveFilter === 'all'
+      ? ['public', 'unlisted']
+      : ['public'];
+    let q1 = newSelect().in('visibility', visibilities);
+    if (userId && effectiveFilter === 'all') q1 = q1.neq('owner_id', userId);
+    return applySearch(q1, q).order('created_at', { ascending: false }).limit(100);
+  })();
 
   const [mineRes, publicRes] = await Promise.all([
     mineQuery ? mineQuery : Promise.resolve({ data: null, error: null }),

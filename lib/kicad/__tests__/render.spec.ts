@@ -56,8 +56,13 @@ describe('renderSvg', () => {
     expect(svg).toContain('data-net="VOUT"');
   });
 
-  it('renders GND as a triangle (polygon) instead of a generic box', () => {
-    expect(svg).toContain('polygon');
+  it('renders GND as a triangle marker tagged as a power symbol', () => {
+    // The symbols.ts gnd glyph draws the canonical triangle from three
+    // horizontal lines stacked under the pin (no <polygon> tag). What we
+    // really care about is that the GND component is identified as a power
+    // symbol so the renderer hides its label and exposes data-net.
+    expect(svg).toContain('data-family="gnd"');
+    expect(svg).toContain('data-net="GND"');
     expect(svg).toContain('GND');
   });
 
