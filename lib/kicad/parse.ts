@@ -161,7 +161,7 @@ export interface KiCadSchematic {
 export class KiCadParseError extends Error {
   readonly code: string;
   constructor(code: string, message: string) {
-    super(`[kicad:${code}] ${message}`);
+    super(message);
     this.name = 'KiCadParseError';
     this.code = code;
   }

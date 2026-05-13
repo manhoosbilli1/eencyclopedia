@@ -571,6 +571,65 @@ export type Database = {
           },
         ]
       }
+      suggestion_upvotes: {
+        Row: {
+          created_at: string
+          suggestion_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          suggestion_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          suggestion_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggestion_upvotes_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "suggestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suggestions: {
+        Row: {
+          author_id: string
+          body: string | null
+          created_at: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          upvotes: number
+        }
+        Insert: {
+          author_id: string
+          body?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          upvotes?: number
+        }
+        Update: {
+          author_id?: string
+          body?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          upvotes?: number
+        }
+        Relationships: []
+      }
       schematics: {
         Row: {
           ai_summary: string | null

@@ -35,7 +35,7 @@ export function generateMetadata(): Metadata {
       template: '%s · eencyclopedia',
     },
     description:
-      'A reference, search, and AI analysis tool for electronic circuits. Upload .kicad_sch files, ask questions, run trivial calculations. Closed beta.',
+      'A circuit encyclopedia for electronics engineers. Upload .kicad_sch files, browse a shared library, edit in the browser, and share your work.',
     applicationName: 'eencyclopedia',
     authors: [{ name: 'eencyclopedia' }],
     keywords: [
@@ -54,14 +54,14 @@ export function generateMetadata(): Metadata {
       siteName: 'eencyclopedia',
       title: 'eencyclopedia — circuits, fast',
       description:
-        'Upload schematics, search circuits, ask an EE-tuned AI. Closed beta.',
+        'Upload schematics, edit in the browser, search a shared circuit library.',
       url: publicEnv.NEXT_PUBLIC_SITE_URL,
     },
     twitter: {
       card: 'summary_large_image',
       title: 'eencyclopedia — circuits, fast',
       description:
-        'Upload schematics, search circuits, ask an EE-tuned AI. Closed beta.',
+        'Upload schematics, edit in the browser, search a shared circuit library.',
     },
     robots: {
       // Closed beta: allow indexing of the landing page only once we open up.

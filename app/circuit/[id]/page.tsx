@@ -294,7 +294,7 @@ export default async function CircuitPage({ params }: Params) {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Schematic</h2>
           <div className="flex items-center gap-3">
             <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground opacity-60">
-              hover to inspect · click to ask AI
+              hover to inspect · open in editor to edit
             </span>
             {isOwner && <RebuildButton circuitId={params.id} />}
           </div>
@@ -303,7 +303,6 @@ export default async function CircuitPage({ params }: Params) {
           <SchematicViewer
             svgContent={svgInline}
             circuitId={params.id}
-            chatHref={`/chat?circuit=${params.id}`}
             rawKicadUrl={rawUrl}
             isOwner={isOwner}
             canEdit={!!user}
@@ -316,11 +315,6 @@ export default async function CircuitPage({ params }: Params) {
           <p className="text-sm text-muted-foreground">No render available.</p>
         )}
         <div className="mt-3 flex flex-wrap gap-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-          {user && (
-            <Link href={`/chat?circuit=${params.id}`} className="underline hover:text-foreground">
-              ↗ ask AI about this circuit
-            </Link>
-          )}
           {rawUrl && (
             <>
               <a href={rawUrl} className="underline hover:text-foreground" download>↓ .kicad_sch</a>

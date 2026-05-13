@@ -168,11 +168,8 @@ export default function WikiPage() {
         <ul className="mt-2 list-disc space-y-1 pl-6">
           <li>10 owned circuits per user (delete one to upload another).</li>
           <li>Up to 200 components per circuit, 5 MiB per upload.</li>
-          <li>
-            <Code>/chat</Code> is paused while the RAG pipeline gets sorted —
-            see the <Link href="/features" className="underline">features</Link> page.
-          </li>
-          <li>SPICE simulation, distributor pricing, and forum/comments are V1.</li>
+          <li>AI is used only for the one-time upload summary — there is no chat feature.</li>
+          <li>SPICE simulation, distributor pricing, and billing are not in scope.</li>
         </ul>
       </Section>
 
