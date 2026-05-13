@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Features — what works, what doesn’t, what’s next',
-  description: 'Live status of every feature in eencyclopedia, grouped by stage.',
+  title: 'Features — what works, what\'s next',
+  description: 'Live status of every feature in eencyclopedia.',
 };
 
-type Status = 'live' | 'beta' | 'paused' | 'planned';
+type Status = 'live' | 'beta' | 'planned';
 
 interface Feature {
   title: string;
@@ -21,78 +21,67 @@ const SECTIONS: Array<{ heading: string; items: Feature[] }> = [
       { status: 'live', title: 'KiCad .kicad_sch upload', body: 'Drag-or-paste; supports KiCad 7, 8, 9, and 10 file formats.' },
       { status: 'live', title: 'Pasted source upload', body: 'Paste S-expression text instead of a file — handy for quick fragments.' },
       { status: 'live', title: 'Bounding-box ingest', body: 'Surround a sub-circuit with a rectangle + an "eencyclopedia" text annotation; only that region is ingested.' },
-      { status: 'live', title: 'KiCad-authentic body rendering', body: 'Uploaded circuits render with their own lib_symbols geometry — including the yellow background fill on connectors and IC bodies.' },
-      { status: 'planned', title: 'Eagle / Altium import', body: 'Out of scope for V0. Track via /suggestions if you want this.' },
+      { status: 'live', title: 'KiCad-authentic body rendering', body: 'Uploaded circuits render with their own lib_symbols geometry — including fills on connectors and IC bodies.' },
+      { status: 'live', title: 'KiCad 10 export', body: 'Download any circuit as a valid .kicad_sch (format 20250114) with full lib_symbol stubs, sheet_instances, and per-element UUIDs.' },
     ],
   },
   {
-    heading: 'Schematic editor (browser)',
+    heading: 'Schematic editor',
     items: [
-      { status: 'live', title: 'Scratch editor', body: 'Click "Editor" in the navbar to open a blank canvas. ~150 symbols in the catalogue.' },
-      { status: 'live', title: 'Wire / junction / no-connect / text / power tools', body: 'KiCad-style toolbar. Drag, rotate (R), mirror (X), undo/redo (Ctrl+Z/Y), copy/paste (Ctrl+C/V/D), align tools when 2+ selected.' },
+      { status: 'live', title: 'Scratch editor', body: 'Open a blank canvas from the Editor link. ~150 symbols in the catalogue.' },
+      { status: 'live', title: 'Wire / junction / no-connect / text / power tools', body: 'KiCad-style toolbar. Drag, rotate (R), mirror (X), undo/redo (Ctrl+Z/Y), copy/paste, align tools.' },
       { status: 'live', title: 'Properties panel', body: 'Slides in when a single component is selected — edit Designator, Value, MPN, Footprint.' },
-      { status: 'live', title: 'Symbol Browser', body: 'Searchable, categorised. Power symbols have their own popover.' },
-      { status: 'beta', title: 'Open someone else’s circuit in the editor', body: 'Loads the raw .kicad_sch into the editor for browsing/editing. Save creates a fork.' },
-      { status: 'planned', title: 'KiCad-authentic editor symbols', body: 'Currently the editor uses recognisable generic glyphs that round-trip to KiCad cleanly. Loading the full KiCad symbol library client-side is a follow-up.' },
+      { status: 'live', title: 'Symbol browser', body: 'Searchable and categorised. Power symbols have their own popover.' },
+      { status: 'beta', title: 'Open and edit any visible circuit', body: 'Loads the raw .kicad_sch into the editor. Save creates a fork linked back to the original.' },
+      { status: 'planned', title: 'Auto-layout for dense uploads', body: 'Better component spacing on tightly-packed imported schematics.' },
+      { status: 'planned', title: 'Full KiCad symbol library', body: 'Currently uses clean generic glyphs that round-trip to KiCad. Loading the full upstream symbol library client-side is a follow-up.' },
     ],
   },
   {
-    heading: 'Sharing &amp; collaboration',
+    heading: 'Sharing',
     items: [
-      { status: 'live', title: 'Visibility: public / unlisted / private', body: 'Set per circuit at upload time. RLS enforces it.' },
-      { status: 'live', title: 'Spinoffs (forks)', body: 'Anyone signed in can edit any visible circuit; saving creates a new circuit linked back via a breadcrumb. fork_count is tracked.' },
-      { status: 'live', title: 'Lineage breadcrumb', body: 'Each fork shows ↰ forked from <parent> · root <ancestor> · N spinoffs.' },
-      { status: 'live', title: 'Stars / favourites', body: 'Per-user star and favourite tracked separately; star count denormalised on the schematic row.' },
-      { status: 'live', title: 'Shared scratch links', body: 'The /schematic/new editor’s Share button publishes the JSON state to /schematic/<slug> with public read.' },
-      { status: 'beta', title: 'Comments', body: 'Top-level + one level of replies. Soft-delete reserved for moderation.' },
+      { status: 'live', title: 'Public / unlisted / private visibility', body: 'Set per circuit at upload time. RLS enforces it at the database level.' },
+      { status: 'live', title: 'Spinoffs (forks)', body: 'Anyone signed in can edit any visible circuit. Saving creates a new circuit with a lineage breadcrumb back to the original.' },
+      { status: 'live', title: 'Fork lineage breadcrumb', body: 'Each fork shows ↰ forked from X · root Y · N spinoffs.' },
+      { status: 'live', title: 'Stars', body: 'Star any public circuit. Star count is visible on the circuit page.' },
+      { status: 'live', title: 'Shared scratch links', body: 'The Editor\'s Share button publishes state to /schematic/<slug> with public read.' },
+      { status: 'beta', title: 'Comments', body: 'Top-level + one level of replies. Soft-delete for moderation.' },
     ],
   },
   {
-    heading: 'AI &amp; search',
+    heading: 'Search',
     items: [
-      { status: 'live', title: 'AI summary on upload', body: 'Single Gemini Flash (default) or Claude Sonnet call extracts topology, rails, key components, intent, design notes.' },
-      { status: 'live', title: 'Backfill button', body: 'On /library — re-runs summary + embedding for any of your circuits missing one.' },
-      { status: 'live', title: 'Hybrid search', body: 'Postgres full-text on title + description + summary. Vector search via pgvector on the summary embedding (Voyage voyage-3, 1024-d).' },
-      { status: 'live', title: 'AI call metering', body: 'Every call writes to ai_calls with provider, model, tokens in/out, cost, and the schematic id.' },
-      { status: 'paused', title: '/chat (RAG conversation)', body: 'Disabled in closed beta — RAG retrieval, prompt-injection hardening, and provider routing are still WIP. Open to contributions.' },
-      { status: 'planned', title: 'Chat per-circuit', body: 'Once /chat is back, the circuit page link will pre-load a circuit context.' },
-      { status: 'planned', title: 'Datasheet ingest pipeline', body: 'Not yet wired — kb_chunks table is ready and partially populated.' },
+      { status: 'live', title: 'Full-text search', body: 'Postgres FTS across title, description, and AI-generated summary text.' },
+      { status: 'live', title: 'Vector (semantic) search', body: 'pgvector cosine similarity on voyage-3 1024-d embeddings of every circuit summary.' },
+      { status: 'live', title: 'Hybrid search (FTS + vector RRF)', body: 'Reciprocal rank fusion merges both signals for best-of-both results.' },
+      { status: 'live', title: 'AI summary on upload', body: 'A single model call (Gemini Flash or Claude Sonnet) extracts topology, rails, key components, and intent — stored as the search anchor for that circuit.' },
+      { status: 'live', title: 'Backfill button', body: 'On /library — re-runs summary + embedding for any circuit missing one.' },
     ],
   },
   {
     heading: 'Calculators',
     items: [
       { status: 'live', title: '12 closed-form calculators', body: 'Ohm, voltage/current divider, RC/RL τ, LED resistor, op-amp gain (inv + non-inv), reactance Xc/Xl, LC resonance, RC cutoff. Engineering-prefix tolerant inputs.' },
-      { status: 'beta', title: 'Calculator API', body: 'Each calculator exposed under /api/calc/[op]; feeds the AI as a tool.' },
-      { status: 'planned', title: 'Interactive schematic per calculator', body: 'Edit components on a small SVG and watch the result update — coming soon.' },
+      { status: 'planned', title: 'Interactive schematic per calculator', body: 'Edit components on a small SVG and watch the result update live.' },
     ],
   },
   {
-    heading: 'KiCad fidelity',
-    items: [
-      { status: 'live', title: 'KiCad 10 download', body: '.kicad_sch export targets eeschema file format 20250114 with full lib_symbol stubs, sheet_instances, embedded_fonts, and per-element UUIDs.' },
-      { status: 'live', title: 'lib_symbols geometry rendering', body: 'Uploaded files render using their own KiCad shapes (rectangles, polylines, circles, arcs) for true visual parity.' },
-      { status: 'planned', title: 'Schematic auto-layout', body: 'Better component spacing on tightly-packed uploads is on the roadmap.' },
-      { status: 'planned', title: 'PCB ingest', body: 'Schematics only for V0. .kicad_pcb support is V2+.' },
-    ],
-  },
-  {
-    heading: 'Platform &amp; ops',
+    heading: 'Platform',
     items: [
       { status: 'live', title: 'Magic-link auth', body: 'Supabase Auth with one-click email sign-in.' },
-      { status: 'live', title: 'Per-circuit AI failure surface', body: 'Owner sees the error code + message + a Regenerate button when the inline summary fails.' },
-      { status: 'live', title: 'Sentry crash reporting', body: 'Replay on errors, low session sample rate to keep editor performance smooth.' },
-      { status: 'beta', title: 'Suggestions box', body: 'Public roadmap board at /suggestions. Authenticated users post + upvote.' },
-      { status: 'planned', title: 'Stripe billing', body: 'Free in beta. Pro tier with higher limits is V1.' },
+      { status: 'live', title: 'Favorites', body: 'Save circuits to your private favorites list.' },
+      { status: 'live', title: 'Profile pages', body: 'Public profile at /profile/<username> shows circuits and karma.' },
+      { status: 'live', title: 'AI call metering', body: 'Every model call writes to ai_calls with provider, model, tokens in/out, and cost.' },
+      { status: 'live', title: 'Suggestion box', body: 'This page. Authenticated users post and upvote at /suggestions.' },
+      { status: 'beta', title: 'Admin ingest', body: 'Bulk circuit upload for seeding the library at /admin/ingest.' },
     ],
   },
 ];
 
 const STATUS_TONE: Record<Status, { label: string; cls: string }> = {
-  live:     { label: 'live',        cls: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30' },
-  beta:     { label: 'beta',        cls: 'bg-sky-500/10 text-sky-700 border-sky-500/30' },
-  paused:   { label: 'paused',      cls: 'bg-amber-500/10 text-amber-700 border-amber-500/30' },
-  planned:  { label: 'planned',     cls: 'bg-muted text-muted-foreground border-border' },
+  live:    { label: 'live',    cls: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30' },
+  beta:    { label: 'beta',    cls: 'bg-sky-500/10 text-sky-700 border-sky-500/30' },
+  planned: { label: 'planned', cls: 'bg-muted text-muted-foreground border-border' },
 };
 
 export default function FeaturesPage() {
@@ -104,25 +93,25 @@ export default function FeaturesPage() {
         </div>
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">Features &amp; roadmap</h1>
         <p className="mt-3 max-w-2xl text-base text-muted-foreground">
-          Everything we&apos;ve built, everything we&apos;re building, and the things
-          we want help on. Want to nudge a planned item up the list?{' '}
-          <Link href="/suggestions" className="underline hover:text-foreground">Vote on /suggestions</Link>.
+          What&apos;s live, what&apos;s in beta, and what&apos;s coming.
+          The focus is on perfecting the core loop: upload, edit, share, search.
+          No new features until the existing ones are solid.
+          Want to nudge something up?{' '}
+          <Link href="/suggestions" className="underline hover:text-foreground">
+            Vote on /suggestions
+          </Link>.
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
-          <Legend tone="live" />
-          <Legend tone="beta" />
-          <Legend tone="paused" />
-          <Legend tone="planned" />
+          <Pill tone="live" />
+          <Pill tone="beta" />
+          <Pill tone="planned" />
         </div>
       </header>
 
       <div className="space-y-12">
         {SECTIONS.map((s) => (
           <section key={s.heading}>
-            <h2
-              className="mb-4 text-xl font-semibold tracking-tight"
-              dangerouslySetInnerHTML={{ __html: s.heading }}
-            />
+            <h2 className="mb-4 text-xl font-semibold tracking-tight">{s.heading}</h2>
             <ul className="space-y-3">
               {s.items.map((item) => (
                 <li
@@ -144,7 +133,7 @@ export default function FeaturesPage() {
       </div>
 
       <footer className="mt-14 border-t border-border pt-6 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        Last updated 2026-05-06 · See <Link href="/wiki" className="underline">/wiki</Link> for usage docs.
+        Last updated 2026-05-13 · See <Link href="/wiki" className="underline">/wiki</Link> for usage docs.
       </footer>
     </main>
   );
@@ -157,8 +146,4 @@ function Pill({ tone }: { tone: Status }) {
       {t.label}
     </span>
   );
-}
-
-function Legend({ tone }: { tone: Status }) {
-  return <Pill tone={tone} />;
 }
