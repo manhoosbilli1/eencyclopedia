@@ -183,7 +183,7 @@ export async function createSchematic(
     console.error('[circuits.create] parse pipeline failed:', err);
     return {
       ok: false,
-      error: 'Could not parse the schematic. The file may be from a newer KiCad version.',
+      error: 'Could not parse this schematic. Check it opens correctly in KiCad, then try again.',
     };
   }
 

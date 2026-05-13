@@ -76,8 +76,8 @@ export default async function AdminIngestPage() {
           <li>Format: PDF only (text-based, not scanned images)</li>
           <li>Processing time: ~1-2 min per 100 pages</li>
           <li>
-            After ingestion, query <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">/chat</code> with
-            topics from the document to verify RAG retrieval
+            After ingestion, search <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">/library</code> to
+            verify the content appears in search results
           </li>
         </ul>
       </header>

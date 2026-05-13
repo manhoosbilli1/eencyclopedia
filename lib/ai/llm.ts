@@ -13,8 +13,7 @@
  *   - Both write to `ai_calls` (provider='anthropic' or 'google') on
  *     success AND failure for end-to-end observability.
  *
- * Model slug mapping for the chat router:
- *   category → 'haiku' | 'sonnet' | 'opus' (model class label)
+ * Model class mapping (used for upload summary calls):
  *   class    → actual provider-specific slug
  *
  *     class  | anthropic                       | gemini
@@ -23,8 +22,7 @@
  *     sonnet | ANTHROPIC_MODEL_SONNET          | GEMINI_MODEL_FLASH
  *     opus   | ANTHROPIC_MODEL_OPUS            | GEMINI_MODEL_PRO
  *
- * Use `resolveModelSlug(class)` from this module to pick the right slug
- * regardless of provider.
+ * Use `resolveModelSlug(class)` to pick the right slug for the active provider.
  */
 
 import { serverEnv } from '@/lib/env';
@@ -38,7 +36,7 @@ import {
 export type { MessagesArgs, MessagesResult, LlmEndpoint };
 export { LlmError };
 
-/** 'sonnet-class' is the workhorse, 'haiku-class' is router/calc, 'opus-class' is deep. */
+/** 'sonnet-class' is the default for upload summaries; 'opus-class' for deep analysis. */
 export type ModelClass = 'haiku' | 'sonnet' | 'opus';
 
 /**

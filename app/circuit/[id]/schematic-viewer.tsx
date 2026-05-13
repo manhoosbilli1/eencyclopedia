@@ -19,7 +19,6 @@ import type { EditorState } from '@/components/schematic/editorTypes';
 interface Props {
   svgContent: string;
   circuitId: string;
-  chatHref: string;
   /** If provided, the component will fetch + parse this URL for interactive editing. */
   rawKicadUrl?: string | null;
   /** When false, Save acts as Fork ("save spinoff") for non-owners. */
@@ -31,7 +30,7 @@ interface Props {
 }
 
 export function SchematicViewer({
-  svgContent, circuitId, chatHref, rawKicadUrl,
+  svgContent, circuitId, rawKicadUrl,
   isOwner, canEdit, title,
 }: Props) {
   const router = useRouter();
@@ -152,7 +151,7 @@ export function SchematicViewer({
     return (
       <div className="space-y-2">
         <p className="text-xs text-destructive">Could not load interactive editor: {errMsg}</p>
-        <StaticViewer svgContent={svgContent} circuitId={circuitId} chatHref={chatHref} />
+        <StaticViewer svgContent={svgContent} circuitId={circuitId}  />
       </div>
     );
   }
@@ -218,7 +217,7 @@ export function SchematicViewer({
           {statusMsg}
         </div>
       )}
-      <StaticViewer svgContent={svgContent} circuitId={circuitId} chatHref={chatHref} />
+      <StaticViewer svgContent={svgContent} circuitId={circuitId}  />
       {rawKicadUrl && (
         <div className="flex justify-end">
           <button
@@ -249,10 +248,9 @@ interface TooltipData {
   y: number;
 }
 
-function StaticViewer({ svgContent, circuitId, chatHref }: {
+function StaticViewer({ svgContent, circuitId }: {
   svgContent: string;
   circuitId: string;
-  chatHref: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
@@ -290,22 +288,11 @@ function StaticViewer({ svgContent, circuitId, chatHref }: {
   }, []);
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const target = e.target as Element | null;
-    if (!target) return;
-    let el: Element | null = target;
-    while (el && el !== containerRef.current) {
-      const designator = el.getAttribute('data-designator');
-      const net = el.getAttribute('data-net');
-      if (designator || net) {
-        const query = designator
-          ? `Explain ${designator} (${el.getAttribute('data-value') ?? ''}) in circuit ${circuitId}`
-          : `Explain net ${net ?? ''} in circuit ${circuitId}`;
-        window.location.href = `${chatHref}&q=${encodeURIComponent(query)}`;
-        return;
-      }
-      el = el.parentElement;
-    }
-  }, [circuitId, chatHref]);
+    // Click on a component or net — no action for now (chat is removed).
+    // Kept as a hook point for future features (copy designator, etc.).
+    void e;
+    void circuitId;
+  }, [circuitId]);
 
   return (
     <div className="relative">

@@ -130,7 +130,8 @@ export function UploadForm() {
       const { fromEditorState } = await import('@/lib/kicad/fromEditorState');
       serializedRef.current = fromEditorState(es);
     } catch (err: unknown) {
-      setParseError((err as Error).message ?? 'Parse failed.');
+      const msg = (err as Error).message ?? '';
+      setParseError(msg || 'Could not parse this file. Check it opens in KiCad and try again.');
     } finally {
       setParsing(false);
     }

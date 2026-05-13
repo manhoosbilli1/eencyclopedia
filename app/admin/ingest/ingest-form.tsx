@@ -155,8 +155,8 @@ export function IngestForm() {
                 <li>• Title: {result.title}</li>
               </ul>
               <p className="mt-3 text-xs">
-                Try searching in <code className="bg-black/10 px-1 rounded">/chat</code> for
-                topics from this document.
+                Try searching in <code className="bg-black/10 px-1 rounded">/library</code> for
+                circuits related to this document.
               </p>
             </>
           ) : (

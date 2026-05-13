@@ -32,7 +32,7 @@ import { costFor } from './pricing';
 // Public types
 // ---------------------------------------------------------------------------
 
-export type AnthropicEndpoint = 'chat' | 'router' | 'summary' | 'tool_call';
+export type AnthropicEndpoint = 'summary' | 'tool_call';
 
 export interface MessagesArgs {
   endpoint: AnthropicEndpoint;
