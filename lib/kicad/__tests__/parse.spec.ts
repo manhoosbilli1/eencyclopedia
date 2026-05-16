@@ -92,14 +92,19 @@ describe('parseKiCadSchematic', () => {
     expect(() => parseKiCadSchematic('(kicad_sch (generator x))')).toThrow(/NO_VERSION/);
   });
 
-  it('rejects too many components', () => {
+  it('parses files above the component cap (cap is enforced post-crop, not in parse)', () => {
+    // The MAX_COMPONENTS_V0 cap is intentionally NOT enforced inside the
+    // parser so the bounding-box ingest can crop large project schematics
+    // down to a sharable sub-circuit. The parser must succeed; callers
+    // check the cap after applyBoundingBoxIngest.
     const tooMany =
       '(kicad_sch (version 20231120) (generator x) ' +
       Array.from({ length: MAX_COMPONENTS_V0 + 1 }, (_, i) =>
         `(symbol (lib_id "Device:R") (at ${i * 10} 0 0) (property "Reference" "R${i}" "") (property "Value" "1k" ""))`,
       ).join(' ') +
       ')';
-    expect(() => parseKiCadSchematic(tooMany)).toThrow(/TOO_MANY_COMPONENTS/);
+    const sch = parseKiCadSchematic(tooMany);
+    expect(sch.symbols.length).toBe(MAX_COMPONENTS_V0 + 1);
   });
 
   it('rejects symbol missing Reference', () => {

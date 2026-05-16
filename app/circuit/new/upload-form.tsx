@@ -78,9 +78,28 @@ export function UploadForm() {
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
+  // If the file contained an "eencyclopedia" bounding-box, this carries the
+  // before/after counts so the UI can confirm the crop to the user.
+  const [cropInfo, setCropInfo] = useState<{
+    before: number;
+    after: number;
+  } | null>(null);
 
-  // The serialized kicad_sch string that will be submitted
+  // The serialized kicad_sch string that will be submitted (round-trip from
+  // editor state). Used when the user actually edited the schematic.
   const serializedRef = useRef<string>('');
+  // The exact source the user uploaded — preferred over the round-tripped
+  // version when the user hasn't edited the schematic, because the
+  // round-trip currently rebuilds lib_symbols from the generic-glyph catalog
+  // (loses KiCad-authentic body geometry for parts like BSS138 MOSFETs).
+  // Sending the original source preserves full KiCad fidelity on the
+  // detail-page render.
+  const originalSourceRef = useRef<string>('');
+  // The very first onChange after parse is the editor's mount-effect echoing
+  // back its own initial state, not a user edit. We flip this true on the
+  // *second* onChange to detect real edits.
+  const editorChangeCountRef = useRef<number>(0);
+  const [hasEdits, setHasEdits] = useState<boolean>(false);
 
   // Hydrate draft
   useEffect(() => {
@@ -96,33 +115,75 @@ export function UploadForm() {
     saveDraft({ title, description, lastFileName });
   }, [hydrated, title, description, lastFileName]);
 
-  // When editor state changes, re-serialize
+  // When editor state changes, re-serialize and (on second+ call) note that
+  // the user has made edits. The first call after parse comes from the
+  // editor's mount effect echoing initialState — not a user edit.
   const handleEditorChange = useCallback((es: EditorState) => {
+    editorChangeCountRef.current += 1;
+    if (editorChangeCountRef.current > 1 && !hasEdits) setHasEdits(true);
     import('@/lib/kicad/fromEditorState').then(({ fromEditorState }) => {
       serializedRef.current = fromEditorState(es);
     });
-  }, []);
+  }, [hasEdits]);
 
   // Parse file client-side
   const parseSource = useCallback(async (source: string) => {
     setParsing(true);
     setParseError(null);
     setEditorState(null);
+    setCropInfo(null);
+    setHasEdits(false);
+    editorChangeCountRef.current = 0;
+    originalSourceRef.current = source;
     try {
       // Dynamic import keeps these out of the initial bundle
-      const [{ parseKiCadSchematic, looksLikeKiCadSchematic }, { normalise }, { toEditorState }] =
-        await Promise.all([
-          import('@/lib/kicad/parse'),
-          import('@/lib/kicad/normalise'),
-          import('@/lib/kicad/toEditorState'),
-        ]);
+      const [
+        { parseKiCadSchematic, looksLikeKiCadSchematic, MAX_COMPONENTS_V0 },
+        { applyBoundingBoxIngest },
+        { normalise },
+        { toEditorState },
+      ] = await Promise.all([
+        import('@/lib/kicad/parse'),
+        import('@/lib/kicad/boundingBox'),
+        import('@/lib/kicad/normalise'),
+        import('@/lib/kicad/toEditorState'),
+      ]);
 
       if (!looksLikeKiCadSchematic(source)) {
         setParseError('Does not look like a .kicad_sch file.');
         return;
       }
 
-      const ast = parseKiCadSchematic(source);
+      const rawAst = parseKiCadSchematic(source);
+
+      // Apply the "eencyclopedia" bounding-box crop client-side so the
+      // editor preview, the component-count check, and the serialized
+      // submission all operate on the cropped sub-circuit.
+      const ingest = applyBoundingBoxIngest(rawAst);
+      const ast = ingest.schematic;
+
+      if (ast.symbols.length === 0) {
+        setParseError(
+          ingest.matched
+            ? 'The "eencyclopedia" bounding box contains no components. Move the rectangle to surround the components you want to share.'
+            : 'No components found in this schematic.',
+        );
+        return;
+      }
+
+      if (ast.symbols.length > MAX_COMPONENTS_V0) {
+        setParseError(
+          ingest.matched
+            ? `The "eencyclopedia" box contains ${ast.symbols.length} components; the closed-beta cap is ${MAX_COMPONENTS_V0}. Shrink the box around a smaller sub-circuit.`
+            : `This schematic has ${ast.symbols.length} components; the closed-beta cap is ${MAX_COMPONENTS_V0}. Tip: in KiCad, draw a rectangle around the sub-circuit you want to share and add a text annotation reading "eencyclopedia" near its top-left corner — re-export and only that region will be ingested.`,
+        );
+        return;
+      }
+
+      if (ingest.matched) {
+        setCropInfo({ before: ingest.before.symbols, after: ingest.after.symbols });
+      }
+
       const canonical = normalise(ast);
       const es = toEditorState(canonical);
       setEditorState(es);
@@ -145,21 +206,29 @@ export function UploadForm() {
     await parseSource(source);
   }, [parseSource]);
 
-  // Override form submit to inject serialized source
+  // Override form submit to inject the right source. Preference order:
+  //   1. If the user EDITED the schematic in the editor → send round-tripped
+  //      serialized state so their edits are preserved.
+  //   2. Otherwise → send the original uploaded source so the saved circuit
+  //      preserves the file's KiCad-authentic lib_symbol geometry (the
+  //      round-trip currently rebuilds lib_symbols from generic glyphs).
+  // In both cases we drop the `file` field so the server uses pasted_source.
   const handleSubmit = useCallback(async (formData: FormData) => {
-    if (serializedRef.current) {
-      // Replace whatever is in pasted_source with our serialized editor state
-      formData.set('pasted_source', serializedRef.current);
-      // Remove the file so the server uses pasted_source
+    const useEditorState = hasEdits && serializedRef.current.length > 0;
+    const payload = useEditorState
+      ? serializedRef.current
+      : originalSourceRef.current;
+    if (payload) {
+      formData.set('pasted_source', payload);
       formData.delete('file');
     }
     return formAction(formData);
-  }, [formAction]);
+  }, [formAction, hasEdits]);
 
   const canSubmit =
     title.trim().length > 0 &&
     description.trim().length > 0 &&
-    (editorState !== null || serializedRef.current.length > 0);
+    (editorState !== null || originalSourceRef.current.length > 0 || serializedRef.current.length > 0);
 
   return (
     <div className="space-y-8">
@@ -245,6 +314,10 @@ export function UploadForm() {
               setTitle(''); setDescription('');
               setLastFileName(null); setEditorState(null);
               serializedRef.current = '';
+              originalSourceRef.current = '';
+              setHasEdits(false);
+              setCropInfo(null);
+              editorChangeCountRef.current = 0;
               clearDraft();
             }}
             className="rounded-md border border-border px-3 py-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground hover:bg-muted"
@@ -287,12 +360,24 @@ export function UploadForm() {
             </h2>
             <button
               type="button"
-              onClick={() => { setEditorState(null); serializedRef.current = ''; }}
+              onClick={() => {
+                setEditorState(null);
+                serializedRef.current = '';
+                setCropInfo(null);
+              }}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
               ✕ dismiss
             </button>
           </div>
+          {cropInfo && (
+            <p className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground">
+              Bounding-box ingest matched — extracted{' '}
+              <strong>{cropInfo.after}</strong> of {cropInfo.before} components
+              from the {'"eencyclopedia"'} rectangle. Only the cropped sub-circuit
+              will be saved.
+            </p>
+          )}
           <div className="overflow-hidden rounded-lg border border-border">
             <SchematicEditorClient
               initialState={editorState}
