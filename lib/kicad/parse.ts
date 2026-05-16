@@ -48,6 +48,26 @@ export interface KiCadMeta {
   generator: string;
 }
 
+/**
+ * One `(property "Name" "value" (at x y rot) (effects …))` block. KiCad
+ * stores the world position and rotation of each property's text right
+ * inside the symbol instance, plus a `(hide yes)` flag for properties that
+ * should be invisible (datasheet, footprint, etc).
+ *
+ * Coordinates are absolute (world) mm; rotation is the text's CCW rotation
+ * in degrees. We propagate these so the editor and detail-page renderer
+ * can place designator/value text at the EXACT positions KiCad placed
+ * them, instead of recomputing from the symbol's bounding box.
+ */
+export interface SymbolProperty {
+  name: string;
+  value: string;
+  x: number;
+  y: number;
+  rot: number;
+  hide: boolean;
+}
+
 export interface Symbol {
   uuid: string | null;
   libId: string;
@@ -58,6 +78,8 @@ export interface Symbol {
   y: number;
   rot: number; // degrees, 0|90|180|270
   mirror: 'none' | 'x' | 'y'; // KiCad's mirror flag (`(mirror x|y)`)
+  /** Property text positions + visibility, keyed by KiCad property name. */
+  properties: SymbolProperty[];
 }
 
 export interface Wire {
@@ -327,17 +349,38 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
       continue;
     }
 
-    // Properties — by name. KiCad 7 stores them as
-    //   (property "Reference" "R1" (at 0 0 0) (effects ...))
+    // Properties — by name. KiCad 7+ stores them as
+    //   (property "Reference" "R1" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)?))
     let designator = '';
     let value = '';
     let mpn: string | null = null;
+    const properties: SymbolProperty[] = [];
     for (const p of children(s, 'property')) {
       const name = arg(p, 0);
       const v = arg(p, 1) ?? '';
+      if (!name) continue;
       if (name === 'Reference') designator = v;
       else if (name === 'Value') value = v;
       else if (name === 'MPN' || name === 'mpn') mpn = v;
+
+      const pAt = firstChild(p, 'at');
+      const px = pAt ? argNum(pAt, 0) ?? 0 : 0;
+      const py = pAt ? argNum(pAt, 1) ?? 0 : 0;
+      const prot = pAt ? argNum(pAt, 2) ?? 0 : 0;
+      // KiCad 9+ uses `(hide yes)` inside `(effects …)`; earlier versions use
+      // a bare `hide` atom inside effects. We check both.
+      let hide = false;
+      const effects = firstChild(p, 'effects');
+      if (effects) {
+        const hideForm = firstChild(effects, 'hide');
+        if (hideForm) {
+          const hv = arg(hideForm, 0);
+          hide = hv === 'yes' || hv === undefined;
+        } else if (effects.items.some((it) => isAtom(it) && it.value === 'hide')) {
+          hide = true;
+        }
+      }
+      properties.push({ name, value: v, x: px, y: py, rot: prot, hide });
     }
     if (!designator) {
       throw new KiCadParseError(
@@ -365,7 +408,7 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
     const uuidForm = firstChild(s, 'uuid');
     const uuid = uuidForm ? (arg(uuidForm, 0) ?? null) : null;
 
-    symbols.push({ uuid, libId, designator, value, mpn, x, y, rot, mirror });
+    symbols.push({ uuid, libId, designator, value, mpn, x, y, rot, mirror, properties });
   }
 
   // Wires.

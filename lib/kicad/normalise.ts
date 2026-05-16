@@ -24,7 +24,7 @@
  *   - toCanonicalJson(sch): typed object for prompt construction
  */
 
-import { transformLocalToWorld, type KiCadSchematic, type Symbol as KiCadSymbol, type Label, type LibPin, type LibShape } from './parse';
+import { transformLocalToWorld, type KiCadSchematic, type Symbol as KiCadSymbol, type Label, type LibPin, type LibShape, type SymbolProperty } from './parse';
 
 // ---------------------------------------------------------------------------
 // Public types — the canonical form
@@ -39,6 +39,14 @@ export interface CanonicalComponent {
   pos: { x: number; y: number };
   rot: number;
   mirror: 'none' | 'x' | 'y';
+  /**
+   * Property text positions + visibility (Reference, Value, Footprint, …)
+   * copied straight from the KiCad symbol instance. Used by the editor and
+   * renderer to place designator/value labels at the exact world position
+   * KiCad placed them, rather than recomputing from a bounding box.
+   * Coordinates are absolute world mm; `rot` is the text's CCW rotation.
+   */
+  properties: SymbolProperty[];
   /**
    * Pin list — number, net (best-effort), local pin coord (in symbol frame),
    * world pin coord (after applying instance transform). World coords are
@@ -157,6 +165,7 @@ function toComponent(s: KiCadSymbol, sch: KiCadSchematic): CanonicalComponent {
     pos: { x: s.x, y: s.y },
     rot: s.rot,
     mirror: s.mirror,
+    properties: s.properties,
     pins,
   };
 }
@@ -704,6 +713,9 @@ function parseComponentItem(attrs: SExpItem[]): CanonicalComponent {
     designator, mpn, value, libId,
     pos: { x: posX, y: posY },
     rot, mirror: 'none', pins,
+    // Legacy parsed-canonical components (not from KiCad source) have no
+    // explicit property layout — renderers fall back to computed positions.
+    properties: [],
   };
 }
 

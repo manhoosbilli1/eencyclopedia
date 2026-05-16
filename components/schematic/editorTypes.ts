@@ -20,6 +20,25 @@ export interface EditorPinLocal {
   y: number;
 }
 
+/**
+ * Property label position copied straight from the KiCad symbol instance —
+ * world coords, world rotation. KiCad authors place these explicitly (and
+ * autoplaced ones still end up in the file) so reproducing the file's
+ * positions is the only way the preview can match KiCad pixel-for-pixel.
+ *
+ * `rot` is KiCad's text rotation in degrees CCW. KiCad keeps text upright
+ * by convention — 180 means the text is anchored on the opposite side, NOT
+ * that it should be drawn upside-down.
+ */
+export interface EditorPropertyLabel {
+  name: string;   // "Reference", "Value", "Footprint", …
+  text: string;
+  x: number;
+  y: number;
+  rot: number;
+  hide: boolean;
+}
+
 export interface EditorComponent {
   id: string;
   libId: string;
@@ -47,6 +66,12 @@ export interface EditorComponent {
   pinsLocal?: EditorPinLocal[];
   /** True for power symbols (KiCad `(power)` flag); turns off labels and uses red stroke. */
   isPower?: boolean;
+  /**
+   * Property text positions/visibility from the source .kicad_sch. When
+   * present, the editor renders designator/value at these exact world
+   * coords instead of computing them from the symbol bounding box.
+   */
+  properties?: EditorPropertyLabel[];
 }
 
 export interface EditorWire {

@@ -73,5 +73,13 @@ function canonicalToEditorComp(
       ? comp.pins.map((p) => ({ number: p.number, x: p.local.x, y: p.local.y }))
       : undefined,
     isPower,
+    properties: comp.properties?.map((p) => ({
+      name: p.name,
+      text: p.value,
+      x: p.x,
+      y: p.y,
+      rot: p.rot,
+      hide: p.hide,
+    })),
   };
 }
