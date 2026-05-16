@@ -101,24 +101,30 @@ function dist(a: Point, b: Point): number {
 }
 
 /**
- * Build an SVG fragment containing one short stub line per pin, from each
- * pin's connection point toward the body. Coordinates are in the symbol's
- * lib_symbol local frame — the caller is expected to wrap the fragment in
- * the same translate/rotate/mirror transform used for the body shapes, so
- * the stubs land at the right world positions.
+ * Build an SVG fragment containing one short stub line per pin, from the
+ * pin's connection point to the body edge. Coordinates are in the
+ * symbol's lib_symbol local frame — the caller wraps the fragment in the
+ * same translate/rotate/mirror transform used for the body shapes.
  *
- * KiCad's pin `rot` encodes the OUTWARD direction the pin points (away
- * from the body, where the pin name/number labels sit and where wires
- * attach). The visible pin LINE is drawn in the OPPOSITE direction: from
- * the connection point inward toward the body. So for outward rot θ the
- * stub endpoint is at (x − L·cos θ, y + L·sin θ) — the minus on x and
- * plus on y come from inverting (cos θ, −sin θ), which is the outward
- * vector in +Y-down screen coords.
+ * KiCad's pin `(at x y θ) (length L)` encodes:
+ *   • (x, y) — the connection point (where wires attach)
+ *   • θ      — the direction the pin LINE is drawn from (x, y) toward the
+ *              body, expressed as a compass-style angle: 0 = right (+x),
+ *              90 = up, 180 = left, 270 = down. Note that in screen
+ *              coords with +Y down, this maps to (cos θ, sin θ) — i.e.
+ *              sin keeps its sign, not negated, because rot=270 ("down")
+ *              wants +y and sin(270°)=−1 so y + L·sin(270°) = y − L which
+ *              is wrong; but rot=90 ("up") wants −y, sin(90)=+1, so
+ *              y + L·sin(90)=y + L which is wrong too if "up" means −y.
  *
- * Sanity-check with Device:R top pin `(at 0 −3.81 90) (length 1.27)`:
- *   outward = (0, −1) ⇒ inward = (0, +1) ⇒ endpoint (0, −2.54) = body edge ✓
- * And a Conn_01x04 left-facing pin `(at −5.08 0 180) (length 2.54)`:
- *   outward = (−1, 0) ⇒ inward = (+1, 0) ⇒ endpoint (−2.54, 0) = body edge ✓
+ *   Empirically the formula that matches KiCad's own rendering is:
+ *     ex = x + L·cos(θ°)
+ *     ey = y + L·sin(θ°)
+ *
+ *   Verified against real KiCad lib_symbol pins:
+ *     Device:R    pin 1 (at 0  3.81 270) length 1.27 → (0, 2.54) ✓ body
+ *     Device:R    pin 2 (at 0 −3.81  90) length 1.27 → (0, −2.54) ✓ body
+ *     Conn_01x04 pin 1 (at −5.08 −3.81 0) length 3.81 → (−1.27, −3.81) ✓
  */
 function buildPinStubsSvg(pins: EditorComponent['pinsLocal']): string {
   if (!pins || pins.length === 0) return '';
@@ -128,7 +134,7 @@ function buildPinStubsSvg(pins: EditorComponent['pinsLocal']): string {
     if (len <= 0) continue;
     const rot = p.rot ?? 0;
     const rad = (rot * Math.PI) / 180;
-    const ex = p.x - len * Math.cos(rad);
+    const ex = p.x + len * Math.cos(rad);
     const ey = p.y + len * Math.sin(rad);
     parts.push(
       `<line x1="${p.x}" y1="${p.y}" x2="${ex.toFixed(3)}" y2="${ey.toFixed(3)}" ` +

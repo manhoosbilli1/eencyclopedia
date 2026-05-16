@@ -175,20 +175,20 @@ function renderEmbeddedBody(
   // Pin stub lines — KiCad always draws a short line from each pin's
   // connection point toward the symbol body as part of standard pin
   // rendering (it's NOT included in lib_symbol shape geometry). Without
-  // these, components like connectors or ICs whose body is offset from
-  // the connection point look visually disconnected from the wires.
-  // Coords are in lib_symbol local frame, so they share the body xform.
+  // these, components whose body is offset from the connection point
+  // look visually disconnected from their wires.
   //
-  // The pin's `rot` is the OUTWARD direction (away from body, where wires
-  // attach). The visible stub line is drawn in the OPPOSITE direction,
-  // i.e. inward from the connection point. In +Y-down coords the inward
-  // unit vector for outward θ is (−cos θ, +sin θ).
+  // Endpoint formula (lib_symbol local frame, shared with body xform):
+  //   ex = x + L·cos(θ°),  ey = y + L·sin(θ°)
+  // Verified against Device:R pins ((0, ±3.81, 90/270) length 1.27 →
+  // body edge at (0, ∓2.54)) and Conn_01x04 pin 1 ((−5.08, −3.81, 0)
+  // length 3.81 → body edge at (−1.27, −3.81)).
   for (const p of comp.pins) {
     const len = p.length ?? 0;
     if (len <= 0) continue;
     const rotPin = p.rot ?? 0;
     const rad = (rotPin * Math.PI) / 180;
-    const ex = p.local.x - len * Math.cos(rad);
+    const ex = p.local.x + len * Math.cos(rad);
     const ey = p.local.y + len * Math.sin(rad);
     bodyParts.push(
       `<line x1="${n(p.local.x)}" y1="${n(p.local.y)}" x2="${n(ex)}" y2="${n(ey)}" ` +
