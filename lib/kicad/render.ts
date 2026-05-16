@@ -178,13 +178,18 @@ function renderEmbeddedBody(
   // these, components like connectors or ICs whose body is offset from
   // the connection point look visually disconnected from the wires.
   // Coords are in lib_symbol local frame, so they share the body xform.
+  //
+  // The pin's `rot` is the OUTWARD direction (away from body, where wires
+  // attach). The visible stub line is drawn in the OPPOSITE direction,
+  // i.e. inward from the connection point. In +Y-down coords the inward
+  // unit vector for outward θ is (−cos θ, +sin θ).
   for (const p of comp.pins) {
     const len = p.length ?? 0;
     if (len <= 0) continue;
     const rotPin = p.rot ?? 0;
     const rad = (rotPin * Math.PI) / 180;
-    const ex = p.local.x + len * Math.cos(rad);
-    const ey = p.local.y - len * Math.sin(rad);
+    const ex = p.local.x - len * Math.cos(rad);
+    const ey = p.local.y + len * Math.sin(rad);
     bodyParts.push(
       `<line x1="${n(p.local.x)}" y1="${n(p.local.y)}" x2="${n(ex)}" y2="${n(ey)}" ` +
       `stroke="${yellowStroke}" stroke-width="0.254" stroke-linecap="round"/>`,
