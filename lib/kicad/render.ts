@@ -273,15 +273,51 @@ function arcFromPoints(
 }
 
 function renderComponentLabel(comp: CanonicalComponent): string {
+  // Prefer the exact property positions stored in the KiCad file. KiCad's
+  // (at … rot) for a property text is the world position; rot encodes
+  // orientation but text is drawn upright/vertical (KiCad never mirrors
+  // glyphs). We map 0/180 → horizontal, 90/270 → vertical.
+  const refProp = comp.properties?.find((p) => p.name === 'Reference');
+  const valProp = comp.properties?.find((p) => p.name === 'Value');
+
+  const renderOne = (
+    text: string,
+    prop: typeof refProp,
+    fallbackX: number,
+    fallbackY: number,
+    fallbackAnchor: 'start' | 'middle' | 'end',
+    fontSize: number,
+    fontWeight: string,
+    opacity: number,
+  ): string => {
+    if (prop?.hide) return '';
+    const x = prop?.x ?? fallbackX;
+    const y = prop?.y ?? fallbackY;
+    const r = prop ? (((prop.rot % 360) + 360) % 360) : 0;
+    const textRot = r % 180 === 0 ? 0 : -90;
+    const transform = textRot ? ` transform="rotate(${n(textRot)} ${n(x)} ${n(y)})"` : '';
+    return (
+      `<text x="${n(x)}" y="${n(y)}" font-size="${n(fontSize)}" ` +
+      `font-weight="${fontWeight}" fill="currentColor" opacity="${n(opacity)}" ` +
+      `text-anchor="${fallbackAnchor}" dominant-baseline="middle"${transform}>` +
+      `${esc(text)}</text>`
+    );
+  };
+
   const anchor = labelAnchorFor(comp);
+
   return (
     `<g class="comp-label" pointer-events="none">` +
-    `<text x="${n(anchor.x)}" y="${n(anchor.dy - 1.0)}" ` +
-    `font-size="2.4" font-weight="600" fill="currentColor" ` +
-    `text-anchor="${anchor.anchor}">${esc(comp.designator)}</text>` +
-    `<text x="${n(anchor.x)}" y="${n(anchor.dy + 1.8)}" ` +
-    `font-size="2.1" fill="currentColor" opacity="0.65" ` +
-    `text-anchor="${anchor.anchor}">${esc(comp.value)}</text>` +
+    renderOne(
+      comp.designator, refProp,
+      anchor.x, anchor.dy - 1.0, anchor.anchor,
+      2.4, '600', 1,
+    ) +
+    renderOne(
+      comp.value, valProp,
+      anchor.x, anchor.dy + 1.8, anchor.anchor,
+      2.1, 'normal', 0.65,
+    ) +
     `</g>`
   );
 }
@@ -375,29 +411,43 @@ function renderNetLabel(
   rot: number,
   kind: 'local' | 'global',
 ): string {
+  // KiCad's label rotation encodes the direction the text extends from the
+  // attachment point, NOT a rotation that should flip the glyphs upside
+  // down. Mapping:
+  //   rot=0   → text to the right of (x,y)
+  //   rot=90  → text above (reads bottom-to-top, i.e. SVG rotate(-90))
+  //   rot=180 → text to the left  of (x,y)
+  //   rot=270 → text below (reads top-to-bottom, SVG rotate(-90) anchored end)
+  // We position the text appropriately and pick text-anchor + a -90° rotation
+  // only for the vertical cases. No transform on the parent group.
   const isGlobal = kind === 'global';
-  // Flag extends 2mm per char estimate + padding, to the right
-  const textLen = Math.max(text.length * 1.8 + 3, 8);
-  const flagH = isGlobal ? 3.2 : 2.8;
-  const fh = flagH / 2; // half-height
+  const r = ((rot % 360) + 360) % 360;
+  const fs = isGlobal ? 2.6 : 2.4;
+  const fw = isGlobal ? '700' : '400';
+  const M = 0.9; // margin between attachment and text edge
 
-  // Flag path: point at left (attachment), rectangle body, arrow tip at right
-  // Points go: tip (x,y) → top-right (x+textLen, y-fh) → bottom-right (x+textLen, y+fh) → close
-  const flagPath = isGlobal
-    ? // global: chevron both ends
-      `M ${n(x)},${n(y)} L ${n(x + 1.2)},${n(y - fh)} L ${n(x + textLen)},${n(y - fh)} L ${n(x + textLen + 1.2)},${n(y)} L ${n(x + textLen)},${n(y + fh)} L ${n(x + 1.2)},${n(y + fh)} Z`
-    : // local: pointed left, flat right
-      `M ${n(x)},${n(y)} L ${n(x + 1.4)},${n(y - fh)} L ${n(x + textLen)},${n(y - fh)} L ${n(x + textLen)},${n(y + fh)} L ${n(x + 1.4)},${n(y + fh)} Z`;
+  let tx = x;
+  let ty = y;
+  let textAnchor: 'start' | 'end' | 'middle' = 'start';
+  let textRot = 0;
+  if (r === 0) { tx = x + M; textAnchor = 'start'; }
+  else if (r === 180) { tx = x - M; textAnchor = 'end'; }
+  else if (r === 90) { ty = y - M; textAnchor = 'start'; textRot = -90; }
+  else if (r === 270) { ty = y + M; textAnchor = 'end'; textRot = -90; }
 
-  const rotAttr = rot ? `transform="rotate(${n(rot)} ${n(x)} ${n(y)})"` : '';
+  const textTransform = textRot ? ` transform="rotate(${n(textRot)} ${n(tx)} ${n(ty)})"` : '';
+  const globalChevron = isGlobal
+    ? `<circle cx="${n(x)}" cy="${n(y)}" r="0.55" fill="none" stroke="currentColor" stroke-width="0.3"/>`
+    : '';
 
   return (
-    `<g class="net-label-wrap" data-net="${esc(text)}" data-label-kind="${kind}" ${rotAttr}>` +
-    `<path d="${flagPath}" fill="currentColor" opacity="0.08" stroke="currentColor" stroke-width="0.35"/>` +
-    `<text x="${n(x + 2.4)}" y="${n(y + 0.9)}" ` +
-    `font-size="${isGlobal ? '2.6' : '2.4'}" ` +
-    `font-weight="${isGlobal ? '700' : '400'}" ` +
-    `fill="currentColor">${esc(text)}</text>` +
+    `<g class="net-label-wrap" data-net="${esc(text)}" data-label-kind="${kind}">` +
+    `<circle cx="${n(x)}" cy="${n(y)}" r="0.32" fill="currentColor"/>` +
+    globalChevron +
+    `<text x="${n(tx)}" y="${n(ty)}" ` +
+    `font-size="${fs}" font-weight="${fw}" ` +
+    `text-anchor="${textAnchor}" dominant-baseline="middle" ` +
+    `fill="currentColor"${textTransform}>${esc(text)}</text>` +
     `</g>`
   );
 }

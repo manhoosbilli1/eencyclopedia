@@ -2455,33 +2455,52 @@ function LabelEl({
   selected: boolean;
   onClick: (e: React.MouseEvent) => void;
 }) {
-  const textLen = Math.max(label.text.length * 1.8 + 3, 8);
-  const fh = 1.4;
-  const flagPath =
-    `M ${fmt(label.x)},${fmt(label.y)} ` +
-    `L ${fmt(label.x + 1.4)},${fmt(label.y - fh)} ` +
-    `L ${fmt(label.x + textLen)},${fmt(label.y - fh)} ` +
-    `L ${fmt(label.x + textLen)},${fmt(label.y + fh)} ` +
-    `L ${fmt(label.x + 1.4)},${fmt(label.y + fh)} Z`;
+  // KiCad's `(label "TEXT" (at x y rot))` rot encodes which side of the
+  // attachment point the text extends from — NOT a rotation that should
+  // flip the glyphs upside-down. Real KiCad keeps text upright (well, or
+  // vertical for 90/270) regardless. Mapping:
+  //   rot=0   → text to the right of (x,y)
+  //   rot=90  → text above (x,y), reads bottom-to-top
+  //   rot=180 → text to the left of (x,y)
+  //   rot=270 → text below (x,y), reads top-to-bottom
+  // We render at the attachment with no transform and pick a text-anchor /
+  // text rotation that produces the correct side without mirroring.
+  const fill = selected ? COLOR.wireSelected : COLOR.netLabel;
+  const r = ((label.rot % 360) + 360) % 360;
+
+  // Position of the text origin relative to the attachment, in label-local
+  // (un-rotated) terms. Margin so text doesn't touch the wire end.
+  const M = 0.7;
+
+  let tx = label.x;
+  let ty = label.y;
+  let textAnchor: 'start' | 'end' | 'middle' = 'start';
+  let textRot = 0;
+  if (r === 0) { tx = label.x + M; textAnchor = 'start'; }
+  else if (r === 180) { tx = label.x - M; textAnchor = 'end'; }
+  else if (r === 90) { ty = label.y - M; textAnchor = 'start'; textRot = -90; }
+  else if (r === 270) { ty = label.y + M; textAnchor = 'end'; textRot = -90; }
 
   return (
-    <g
-      style={{ cursor: 'pointer' }}
-      onClick={onClick}
-      transform={label.rot ? `rotate(${label.rot} ${label.x} ${label.y})` : undefined}
-    >
-      <path
-        d={flagPath}
-        fill={selected ? `${COLOR.wireSelected}33` : `${COLOR.netLabel}15`}
-        stroke={selected ? COLOR.wireSelected : COLOR.netLabel}
-        strokeWidth={0.3}
+    <g style={{ cursor: 'pointer' }} onClick={onClick}>
+      {/* Small attachment indicator — just a dot so users can find the
+          anchor without it visually overwhelming the text the way the old
+          chunky flag did. */}
+      <circle
+        cx={label.x} cy={label.y}
+        r={selected ? 0.5 : 0.32}
+        fill={fill}
+        pointerEvents="none"
       />
       <text
-        x={label.x + 2.4}
-        y={label.y + 0.9}
-        fontSize="2.2"
-        fill={selected ? COLOR.wireSelected : COLOR.netLabel}
+        x={tx} y={ty}
+        fontSize="1.6"
+        fill={fill}
+        textAnchor={textAnchor}
+        dominantBaseline="middle"
         pointerEvents="none"
+        transform={textRot ? `rotate(${textRot} ${tx} ${ty})` : undefined}
+        fontFamily="system-ui, -apple-system, sans-serif"
       >
         {label.text}
       </text>
@@ -2668,83 +2687,128 @@ function ComponentEl({
         dangerouslySetInnerHTML={{ __html: embeddedSvg ?? draw!.svg }}
       />
 
-      {/* Labels (not for power symbols) */}
-      {!isPower && (
-        <>
-          {/* Designator */}
-          {editing ? (
-            <foreignObject x={comp.x - 9} y={comp.y - hh - 3.5} width={18} height={4}>
-              <input
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ref={(el: any) => el?.focus()}
-                value={editing.designator}
-                onChange={(e) => onEditChange('designator', e.target.value)}
-                onBlur={() => onEditCommit(editing.value, editing.designator)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onEditCommit(editing.value, editing.designator);
-                  if (e.key === 'Tab') {
-                    e.preventDefault();
-                    // Move focus to value (handled by re-render with same editing obj)
-                  }
-                }}
-                style={{
-                  width: '100%',
-                  fontSize: '2px',
-                  background: '#ffffff',
-                  color: '#1a1a2e',
-                  border: `0.2px solid ${COLOR.wireSelected}`,
-                  padding: '0.3px 0.5px',
-                  outline: 'none',
-                }}
-              />
-            </foreignObject>
-          ) : (
-            <text
-              x={comp.x} y={comp.y - hh - 1}
-              fontSize="2.2"
-              fontWeight="600"
-              fill={selected ? COLOR.wireSelected : COLOR.component}
-              textAnchor="middle"
-              pointerEvents="none"
-            >
-              {comp.designator}
-            </text>
-          )}
+      {/* Labels (not for power symbols).
+          When the source .kicad_sch file carries explicit (property … (at x y rot))
+          positions for Reference and Value, we honour them: KiCad-faithful
+          rendering REQUIRES placing the text exactly where KiCad placed it,
+          rather than recomputing from a bounding box. Falls back to a sensible
+          default position for editor-placed components or files missing property
+          positions. */}
+      {!isPower && (() => {
+        const refProp = comp.properties?.find((p) => p.name === 'Reference');
+        const valProp = comp.properties?.find((p) => p.name === 'Value');
 
-          {/* Value */}
-          {editing ? (
-            <foreignObject x={comp.x - 9} y={comp.y + hh + 0.5} width={18} height={4}>
-              <input
-                value={editing.value}
-                onChange={(e) => onEditChange('value', e.target.value)}
-                onBlur={() => onEditCommit(editing.value, editing.designator)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onEditCommit(editing.value, editing.designator);
-                }}
-                style={{
-                  width: '100%',
-                  fontSize: '2px',
-                  background: '#ffffff',
-                  color: '#1a1a2e',
-                  border: `0.2px solid ${COLOR.wireSelected}`,
-                  padding: '0.3px 0.5px',
-                  outline: 'none',
-                }}
-              />
-            </foreignObject>
-          ) : (
+        // KiCad keeps text upright regardless of (at … rot). Rot only affects
+        // the text's alignment side. We normalize to 0/90 — 180 and 270 are
+        // drawn at the same orientation as 0 and 90 respectively, with the
+        // anchor flipped. text-anchor="middle" matches KiCad's centred labels.
+        const renderLabel = (
+          text: string,
+          fallbackX: number,
+          fallbackY: number,
+          prop: typeof refProp,
+          fontSize: number,
+          fontWeight: string,
+          fill: string,
+        ) => {
+          if (prop?.hide) return null;
+          const x = prop?.x ?? fallbackX;
+          const y = prop?.y ?? fallbackY;
+          const rot = prop?.rot ?? 0;
+          // Map KiCad rotation → uprightish text rotation:
+          //   0 / 180 → horizontal text
+          //   90 / 270 → vertical text (read bottom-to-top, i.e. -90°)
+          const textRot = (rot % 180 === 0) ? 0 : -90;
+          const transform = textRot !== 0
+            ? `rotate(${textRot} ${x} ${y})`
+            : undefined;
+          return (
             <text
-              x={comp.x} y={comp.y + hh + 2.5}
-              fontSize="2.0"
-              fill={selected ? COLOR.wireSelected : '#555577'}
+              x={x} y={y}
+              fontSize={fontSize}
+              fontWeight={fontWeight}
+              fill={fill}
               textAnchor="middle"
+              dominantBaseline="middle"
               pointerEvents="none"
+              transform={transform}
+              fontFamily="system-ui, -apple-system, sans-serif"
             >
-              {comp.value}
+              {text}
             </text>
-          )}
-        </>
-      )}
+          );
+        };
+
+        const desigFill = selected ? COLOR.wireSelected : COLOR.component;
+        const valFill = selected ? COLOR.wireSelected : '#555577';
+
+        return (
+          <>
+            {/* Designator — KiCad property "Reference" */}
+            {editing ? (
+              <foreignObject x={comp.x - 9} y={comp.y - hh - 3.5} width={18} height={4}>
+                <input
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ref={(el: any) => el?.focus()}
+                  value={editing.designator}
+                  onChange={(e) => onEditChange('designator', e.target.value)}
+                  onBlur={() => onEditCommit(editing.value, editing.designator)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onEditCommit(editing.value, editing.designator);
+                    if (e.key === 'Tab') e.preventDefault();
+                  }}
+                  style={{
+                    width: '100%',
+                    fontSize: '2px',
+                    background: '#ffffff',
+                    color: '#1a1a2e',
+                    border: `0.2px solid ${COLOR.wireSelected}`,
+                    padding: '0.3px 0.5px',
+                    outline: 'none',
+                  }}
+                />
+              </foreignObject>
+            ) : (
+              renderLabel(
+                comp.designator,
+                comp.x, comp.y - hh - 1,
+                refProp,
+                1.27, '600', desigFill,
+              )
+            )}
+
+            {/* Value — KiCad property "Value" */}
+            {editing ? (
+              <foreignObject x={comp.x - 9} y={comp.y + hh + 0.5} width={18} height={4}>
+                <input
+                  value={editing.value}
+                  onChange={(e) => onEditChange('value', e.target.value)}
+                  onBlur={() => onEditCommit(editing.value, editing.designator)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onEditCommit(editing.value, editing.designator);
+                  }}
+                  style={{
+                    width: '100%',
+                    fontSize: '2px',
+                    background: '#ffffff',
+                    color: '#1a1a2e',
+                    border: `0.2px solid ${COLOR.wireSelected}`,
+                    padding: '0.3px 0.5px',
+                    outline: 'none',
+                  }}
+                />
+              </foreignObject>
+            ) : (
+              renderLabel(
+                comp.value,
+                comp.x, comp.y + hh + 2.5,
+                valProp,
+                1.27, 'normal', valFill,
+              )
+            )}
+          </>
+        );
+      })()}
     </g>
   );
 }
