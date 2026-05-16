@@ -18,6 +18,16 @@ export interface EditorPinLocal {
   number: string;
   x: number;
   y: number;
+  /**
+   * KiCad pin direction in lib_symbol local frame. CCW degrees; specifies
+   * which way the pin LINE extends from the connection point toward the
+   * symbol body. 0=right, 90=up, 180=left, 270=down. Required for drawing
+   * the pin stub line between the connection point and the body — without
+   * it, wires appear visually disconnected from the symbol.
+   */
+  rot?: number;
+  /** Pin stub length in mm (lib_symbol local frame). */
+  length?: number;
 }
 
 /**

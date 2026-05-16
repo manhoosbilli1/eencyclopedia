@@ -101,6 +101,35 @@ function dist(a: Point, b: Point): number {
 }
 
 /**
+ * Build an SVG fragment containing one short stub line per pin, from each
+ * pin's connection point toward the body. Coordinates are in the symbol's
+ * lib_symbol local frame — the caller is expected to wrap the fragment in
+ * the same translate/rotate/mirror transform used for the body shapes, so
+ * the stubs land at the right world positions.
+ *
+ * KiCad's pin rot is CCW degrees with `0` pointing right. Because our SVG
+ * frame is +Y down (matching KiCad's), the endpoint is:
+ *   (x + L·cos θ, y − L·sin θ)
+ */
+function buildPinStubsSvg(pins: EditorComponent['pinsLocal']): string {
+  if (!pins || pins.length === 0) return '';
+  const parts: string[] = [];
+  for (const p of pins) {
+    const len = p.length ?? 0;
+    if (len <= 0) continue;
+    const rot = p.rot ?? 0;
+    const rad = (rot * Math.PI) / 180;
+    const ex = p.x + len * Math.cos(rad);
+    const ey = p.y - len * Math.sin(rad);
+    parts.push(
+      `<line x1="${p.x}" y1="${p.y}" x2="${ex.toFixed(3)}" y2="${ey.toFixed(3)}" ` +
+      `stroke="currentColor" stroke-width="0.254" stroke-linecap="round"/>`,
+    );
+  }
+  return parts.join('');
+}
+
+/**
  * Compute world pin positions for a component.
  *
  * When the component carries `pinsLocal` (sourced from an uploaded KiCad
@@ -2623,12 +2652,18 @@ function ComponentEl({
   // package, power-flag triangle) instead of falling back to the generic
   // glyph catalog. The lib_symbol coordinate frame is +Y-down, so the same
   // -rot/scale convention used for generic glyphs applies.
+  //
+  // We also emit a short pin-stub line from each connection point toward
+  // the body — KiCad always draws these as part of pin rendering (not as
+  // explicit shapes in lib_symbols), so without them connectors and other
+  // parts whose body is offset from the connection point appear to have a
+  // visible gap between the wire and the body.
   const embeddedSvg = useEmbedded
     ? renderLibShapes(comp.embeddedShapes!, {
         fillBackground: isPower ? 'none' : '#fffeb8',
         stroke: 'currentColor',
         strokeWidth: 0.254,
-      })
+      }) + buildPinStubsSvg(comp.pinsLocal)
     : null;
 
   return (
@@ -2664,22 +2699,9 @@ function ComponentEl({
           />
         ))}
 
-      {/* Pin terminator dots — small circles at every pin so wires visually
-          attach even when the embedded body doesn't include explicit pin
-          lines. Matches the dot rendering in lib/kicad/render.ts. */}
-      {useEmbedded &&
-        compPinPositions(comp).map((p, i) => (
-          <circle
-            key={`pin-${i}`}
-            cx={p.x} cy={p.y}
-            r={0.45}
-            fill={strokeColor}
-            pointerEvents="none"
-          />
-        ))}
-
       {/* Symbol body — embedded lib_symbol shapes (KiCad fidelity) or the
-          generic glyph fallback. */}
+          generic glyph fallback. Pin stub lines are baked into the embedded
+          SVG by buildPinStubsSvg so they share the body's transform. */}
       {/* eslint-disable-next-line react/no-danger */}
       <g
         transform={transform}

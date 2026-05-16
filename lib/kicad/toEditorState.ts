@@ -70,7 +70,13 @@ function canonicalToEditorComp(
     mpn: comp.mpn ?? undefined,
     embeddedShapes: libGfx?.shapes as EditorComponent['embeddedShapes'],
     pinsLocal: comp.pins.length > 0
-      ? comp.pins.map((p) => ({ number: p.number, x: p.local.x, y: p.local.y }))
+      ? comp.pins.map((p) => ({
+          number: p.number,
+          x: p.local.x,
+          y: p.local.y,
+          rot: p.rot,
+          length: p.length,
+        }))
       : undefined,
     isPower,
     properties: comp.properties?.map((p) => ({

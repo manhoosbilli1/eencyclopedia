@@ -61,6 +61,14 @@ export interface CanonicalComponent {
     net: string;
     local: { x: number; y: number };
     world: { x: number; y: number };
+    /**
+     * Pin orientation in lib_symbol local frame (KiCad CCW degrees:
+     * 0=right, 90=up, 180=left, 270=down). Used to draw the pin-stub
+     * line from connection point to body edge, matching KiCad rendering.
+     */
+    rot?: number;
+    /** Pin stub length in mm (lib_symbol local frame). */
+    length?: number;
   }[];
 }
 
@@ -154,6 +162,8 @@ function toComponent(s: KiCadSymbol, sch: KiCadSchematic): CanonicalComponent {
       net: 'unknown',
       local: { x: p.x, y: p.y },
       world,
+      rot: p.rot,
+      length: p.length,
     };
   });
 
