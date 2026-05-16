@@ -194,10 +194,13 @@ const SUPPORTED_VERSION_MAX = 20260101; // KiCad 9.x generous upper bound
  *   - non-kicad_sch root
  *   - missing required meta
  *   - missing Reference or Value on any symbol
- *   - more than `MAX_COMPONENTS_V0` symbols
  *
  * Non-fatal issues (e.g. unsupported version, unrecognised mirror) get pushed
  * onto `warnings` so the UI can surface them without aborting.
+ *
+ * The component-count cap (`MAX_COMPONENTS_V0`) is intentionally NOT enforced
+ * here — bounding-box ingest runs after parsing and can drop the count below
+ * the cap. The cap is enforced post-crop by callers.
  */
 export function parseKiCadSchematic(src: string): KiCadSchematic {
   const ast = parseSexp(src);
@@ -297,13 +300,15 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
   // Symbol instances. KiCad nests each instance directly under root as
   //   (symbol (lib_id "...") (at x y rot) (uuid "...") (mirror x|y)?
   //          (property "Reference" "R1" ...) (property "Value" "10k" ...) ...)
+  //
+  // We intentionally do NOT enforce MAX_COMPONENTS_V0 here. The whole point of
+  // the "eencyclopedia" bounding-box ingest is to let users isolate a small
+  // sub-circuit from a large project sheet — cropping happens in
+  // boundingBox.ts AFTER parsing. Enforcing the cap before the crop would
+  // make the bounding-box feature useless for the schematics it exists to
+  // serve. The cap is re-checked post-crop in lib/circuits/actions.ts and
+  // (when relevant) on the client in upload-form.tsx.
   const symbolForms = children(ast, 'symbol').filter((s) => firstChild(s, 'lib_id'));
-  if (symbolForms.length > MAX_COMPONENTS_V0) {
-    throw new KiCadParseError(
-      'TOO_MANY_COMPONENTS',
-      `V0 supports at most ${MAX_COMPONENTS_V0} components per circuit; this file has ${symbolForms.length}.`,
-    );
-  }
 
   const symbols: Symbol[] = [];
   for (const s of symbolForms) {

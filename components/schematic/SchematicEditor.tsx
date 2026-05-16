@@ -27,6 +27,7 @@ import React, {
   useState,
 } from 'react';
 import { drawSymbol } from '@/lib/kicad/symbols';
+import { renderLibShapes, shapesBBox } from '@/lib/kicad/renderLibShape';
 import { SymbolBrowser } from './SymbolBrowser';
 import BomTable from './BomTable';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -99,12 +100,40 @@ function dist(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-/** Apply component rotation to local pin offset → world coords */
+/**
+ * Compute world pin positions for a component.
+ *
+ * When the component carries `pinsLocal` (sourced from an uploaded KiCad
+ * file's lib_symbol block), use those — they describe the part's actual
+ * pin layout, including non-symmetric and multi-pin layouts the generic
+ * glyph catalog doesn't model. Otherwise fall back to the generic glyph's
+ * pin offsets so editor-placed components still behave correctly.
+ *
+ * Coordinate transform: KiCad applies mirror in the local frame BEFORE
+ * rotation, then translates by the instance anchor. The local rotation is
+ * counter-clockwise; SVG's +Y is down, so we use the same sign convention
+ * as `transformLocalToWorld` in lib/kicad/parse.ts.
+ */
 function compPinPositions(comp: EditorComponent): Point[] {
-  const draw = drawSymbol(comp.libId, comp.value);
   const rad = (-comp.rot * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
+
+  if (comp.pinsLocal && comp.pinsLocal.length > 0) {
+    return comp.pinsLocal.map((p) => {
+      let lx = p.x;
+      let ly = p.y;
+      // Apply mirror first (KiCad convention)
+      if (comp.mirror === 'x') ly = -ly;
+      else if (comp.mirror === 'y') lx = -lx;
+      return {
+        x: comp.x + lx * cos - ly * sin,
+        y: comp.y + lx * sin + ly * cos,
+      };
+    });
+  }
+
+  const draw = drawSymbol(comp.libId, comp.value);
   const mx = comp.mirror === 'x' ? -1 : 1;
   return draw.pins.map((p) => {
     const lx = p.dx * mx;
@@ -211,15 +240,38 @@ function nextDesignator(state: EditorState, prefix: string): string {
   return `${prefix}${n}`;
 }
 
+/**
+ * Local-frame half-extents for a component. Prefers the embedded
+ * lib_symbol bbox (uploaded KiCad geometry) over the generic glyph extents
+ * so hit-testing and selection rectangles correctly cover the actual body.
+ */
+function compHalfExtents(comp: EditorComponent): { hw: number; hh: number } {
+  if (comp.embeddedShapes && comp.embeddedShapes.length > 0) {
+    const bb = shapesBBox(comp.embeddedShapes);
+    if (bb) {
+      const hw = Math.max(Math.abs(bb.minX), Math.abs(bb.maxX));
+      const hh = Math.max(Math.abs(bb.minY), Math.abs(bb.maxY));
+      return { hw, hh };
+    }
+  }
+  if (comp.pinsLocal && comp.pinsLocal.length > 0) {
+    const hw = Math.max(...comp.pinsLocal.map((p) => Math.abs(p.x)));
+    const hh = Math.max(...comp.pinsLocal.map((p) => Math.abs(p.y)));
+    return { hw: Math.max(hw, 2), hh: Math.max(hh, 2) };
+  }
+  const draw = drawSymbol(comp.libId, comp.value);
+  return { hw: draw.halfWidth, hh: draw.halfHeight };
+}
+
 /** Bounding box for a component (world coords) */
 function compBBox(comp: EditorComponent): { x: number; y: number; w: number; h: number } {
-  const draw = drawSymbol(comp.libId, comp.value);
+  const { hw, hh } = compHalfExtents(comp);
   const r = (comp.rot * Math.PI) / 180;
   const corners = [
-    { x: -draw.halfWidth, y: -draw.halfHeight },
-    { x: draw.halfWidth, y: -draw.halfHeight },
-    { x: draw.halfWidth, y: draw.halfHeight },
-    { x: -draw.halfWidth, y: draw.halfHeight },
+    { x: -hw, y: -hh },
+    { x: hw, y: -hh },
+    { x: hw, y: hh },
+    { x: -hw, y: hh },
   ];
   const xs = corners.map(
     (c) => comp.x + c.x * Math.cos(r) - c.y * Math.sin(r),
@@ -240,11 +292,11 @@ function hitTestComponent(worldX: number, worldY: number, components: EditorComp
   for (let i = components.length - 1; i >= 0; i--) {
     const c = components[i];
     if (!c) continue;
-    const draw = drawSymbol(c.libId, c.value);
+    const { hw: bodyHw, hh: bodyHh } = compHalfExtents(c);
     // For rotated bounding boxes use the axis-aligned envelope
     // For 90/270 deg the width and height axes swap
-    const hw = (c.rot === 90 || c.rot === 270 ? draw.halfHeight : draw.halfWidth) + 1;
-    const hh = (c.rot === 90 || c.rot === 270 ? draw.halfWidth : draw.halfHeight) + 1;
+    const hw = (c.rot === 90 || c.rot === 270 ? bodyHh : bodyHw) + 1;
+    const hh = (c.rot === 90 || c.rot === 270 ? bodyHw : bodyHh) + 1;
     const dx = Math.abs(worldX - c.x);
     const dy = Math.abs(worldY - c.y);
     if (dx <= hw && dy <= hh) return c;
@@ -2528,17 +2580,37 @@ function ComponentEl({
   onEditCommit: (value: string, designator: string) => void;
   onEditChange: (field: 'value' | 'designator', v: string) => void;
 }) {
-  const draw = drawSymbol(comp.libId, comp.value);
-  const isPower = comp.libId.toLowerCase().startsWith('power:');
+  const useEmbedded = !!(comp.embeddedShapes && comp.embeddedShapes.length > 0);
+  const draw = useEmbedded ? null : drawSymbol(comp.libId, comp.value);
+  // Power symbols are recognised either by KiCad's (power) flag (already
+  // propagated as comp.isPower) or by the library prefix. Designators
+  // starting with `#` are KiCad's invisible-on-export convention for power.
+  const isPower = comp.isPower
+    || comp.libId.toLowerCase().startsWith('power:')
+    || comp.designator.startsWith('#');
 
   const transform =
     `translate(${comp.x} ${comp.y}) rotate(${-comp.rot})` +
     (comp.mirror === 'x' ? ' scale(-1 1)' : comp.mirror === 'y' ? ' scale(1 -1)' : '');
 
-  const hw = draw.halfWidth + 1.5;
-  const hh = draw.halfHeight + 1.5;
+  const { hw: bodyHw, hh: bodyHh } = compHalfExtents(comp);
+  const hw = bodyHw + 1.5;
+  const hh = bodyHh + 1.5;
 
   const strokeColor = isPower ? COLOR.power : COLOR.component;
+
+  // When we have embedded geometry from the file, render those shapes — this
+  // matches KiCad's own drawing of the symbol body (e.g. BSS138 MOSFET
+  // package, power-flag triangle) instead of falling back to the generic
+  // glyph catalog. The lib_symbol coordinate frame is +Y-down, so the same
+  // -rot/scale convention used for generic glyphs applies.
+  const embeddedSvg = useEmbedded
+    ? renderLibShapes(comp.embeddedShapes!, {
+        fillBackground: isPower ? 'none' : '#fffeb8',
+        stroke: 'currentColor',
+        strokeWidth: 0.254,
+      })
+    : null;
 
   return (
     <g
@@ -2573,12 +2645,27 @@ function ComponentEl({
           />
         ))}
 
-      {/* Symbol glyph */}
+      {/* Pin terminator dots — small circles at every pin so wires visually
+          attach even when the embedded body doesn't include explicit pin
+          lines. Matches the dot rendering in lib/kicad/render.ts. */}
+      {useEmbedded &&
+        compPinPositions(comp).map((p, i) => (
+          <circle
+            key={`pin-${i}`}
+            cx={p.x} cy={p.y}
+            r={0.45}
+            fill={strokeColor}
+            pointerEvents="none"
+          />
+        ))}
+
+      {/* Symbol body — embedded lib_symbol shapes (KiCad fidelity) or the
+          generic glyph fallback. */}
       {/* eslint-disable-next-line react/no-danger */}
       <g
         transform={transform}
         color={strokeColor}
-        dangerouslySetInnerHTML={{ __html: draw.svg }}
+        dangerouslySetInnerHTML={{ __html: embeddedSvg ?? draw!.svg }}
       />
 
       {/* Labels (not for power symbols) */}

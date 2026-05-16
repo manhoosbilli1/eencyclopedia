@@ -1,17 +1,31 @@
 // Shared types for the interactive schematic editor.
 // Extended v2: undo/redo, multi-select, no-connect, text annotations, power symbols.
 
+import type { LibShape } from '@/lib/kicad/parse';
+
 export type EditorMode = 'select' | 'wire' | 'place' | 'text' | 'no_connect';
 export type PlaceKind = 'resistor' | 'capacitor' | 'inductor' | 'diode' | 'led'
   | 'npn' | 'pnp' | 'nmos' | 'pmos' | 'opamp' | 'switch' | 'crystal' | 'fuse'
   | 'power' | 'gnd' | 'label';
+
+/**
+ * Pin geometry copied from the KiCad lib_symbol block (local lib_symbol frame,
+ * NOT world coords). When present on an EditorComponent these override the
+ * generic-glyph pin positions, so wires snap to the right place for parts
+ * the generic-glyph catalog doesn't know about (e.g. BSS138 MOSFETs).
+ */
+export interface EditorPinLocal {
+  number: string;
+  x: number;
+  y: number;
+}
 
 export interface EditorComponent {
   id: string;
   libId: string;
   designator: string;
   value: string;
-  x: number;  // mm, component centre
+  x: number;  // mm — the KiCad instance anchor (lib_symbol local origin in world)
   y: number;
   rot: number; // degrees 0|90|180|270
   mirror: 'none' | 'x' | 'y';
@@ -22,6 +36,17 @@ export interface EditorComponent {
   // Draggable label offsets (mm relative to component centre)
   designatorOffset?: { x: number; y: number };
   valueOffset?: { x: number; y: number };
+  /**
+   * Embedded body geometry copied from the uploaded KiCad file's
+   * (lib_symbols …) block. When present, the editor renders these shapes
+   * at the instance anchor with `rot` + `mirror` applied — matching what
+   * KiCad itself draws. Falls back to the generic glyph otherwise.
+   */
+  embeddedShapes?: LibShape[];
+  /** Pin geometry in lib_symbol local coords; overrides generic glyph pins. */
+  pinsLocal?: EditorPinLocal[];
+  /** True for power symbols (KiCad `(power)` flag); turns off labels and uses red stroke. */
+  isPower?: boolean;
 }
 
 export interface EditorWire {
