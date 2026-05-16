@@ -172,19 +172,25 @@ function renderEmbeddedBody(
   for (const s of shapes) {
     bodyParts.push(renderLibShape(s, yellowFill, yellowStroke));
   }
-  // Pin terminator dots — small circles at every pin endpoint so wires snap
-  // visually even when the symbol body doesn't include explicit pin lines.
-  const pinDots: string[] = [];
+  // Pin stub lines — KiCad always draws a short line from each pin's
+  // connection point toward the symbol body as part of standard pin
+  // rendering (it's NOT included in lib_symbol shape geometry). Without
+  // these, components like connectors or ICs whose body is offset from
+  // the connection point look visually disconnected from the wires.
+  // Coords are in lib_symbol local frame, so they share the body xform.
   for (const p of comp.pins) {
-    pinDots.push(
-      `<circle cx="${n(p.world.x)}" cy="${n(p.world.y)}" r="0.45" ` +
-      `fill="currentColor"/>`,
+    const len = p.length ?? 0;
+    if (len <= 0) continue;
+    const rotPin = p.rot ?? 0;
+    const rad = (rotPin * Math.PI) / 180;
+    const ex = p.local.x + len * Math.cos(rad);
+    const ey = p.local.y - len * Math.sin(rad);
+    bodyParts.push(
+      `<line x1="${n(p.local.x)}" y1="${n(p.local.y)}" x2="${n(ex)}" y2="${n(ey)}" ` +
+      `stroke="${yellowStroke}" stroke-width="0.254" stroke-linecap="round"/>`,
     );
   }
-  return (
-    `<g class="comp-body" transform="${xform}">${bodyParts.join('')}</g>` +
-    pinDots.join('')
-  );
+  return `<g class="comp-body" transform="${xform}">${bodyParts.join('')}</g>`;
 }
 
 function renderLibShape(s: LibShape, fill: string, stroke: string): string {
