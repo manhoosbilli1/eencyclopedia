@@ -107,9 +107,18 @@ function dist(a: Point, b: Point): number {
  * the same translate/rotate/mirror transform used for the body shapes, so
  * the stubs land at the right world positions.
  *
- * KiCad's pin rot is CCW degrees with `0` pointing right. Because our SVG
- * frame is +Y down (matching KiCad's), the endpoint is:
- *   (x + L·cos θ, y − L·sin θ)
+ * KiCad's pin `rot` encodes the OUTWARD direction the pin points (away
+ * from the body, where the pin name/number labels sit and where wires
+ * attach). The visible pin LINE is drawn in the OPPOSITE direction: from
+ * the connection point inward toward the body. So for outward rot θ the
+ * stub endpoint is at (x − L·cos θ, y + L·sin θ) — the minus on x and
+ * plus on y come from inverting (cos θ, −sin θ), which is the outward
+ * vector in +Y-down screen coords.
+ *
+ * Sanity-check with Device:R top pin `(at 0 −3.81 90) (length 1.27)`:
+ *   outward = (0, −1) ⇒ inward = (0, +1) ⇒ endpoint (0, −2.54) = body edge ✓
+ * And a Conn_01x04 left-facing pin `(at −5.08 0 180) (length 2.54)`:
+ *   outward = (−1, 0) ⇒ inward = (+1, 0) ⇒ endpoint (−2.54, 0) = body edge ✓
  */
 function buildPinStubsSvg(pins: EditorComponent['pinsLocal']): string {
   if (!pins || pins.length === 0) return '';
@@ -119,8 +128,8 @@ function buildPinStubsSvg(pins: EditorComponent['pinsLocal']): string {
     if (len <= 0) continue;
     const rot = p.rot ?? 0;
     const rad = (rot * Math.PI) / 180;
-    const ex = p.x + len * Math.cos(rad);
-    const ey = p.y - len * Math.sin(rad);
+    const ex = p.x - len * Math.cos(rad);
+    const ey = p.y + len * Math.sin(rad);
     parts.push(
       `<line x1="${p.x}" y1="${p.y}" x2="${ex.toFixed(3)}" y2="${ey.toFixed(3)}" ` +
       `stroke="currentColor" stroke-width="0.254" stroke-linecap="round"/>`,
