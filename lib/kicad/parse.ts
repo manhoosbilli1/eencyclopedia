@@ -296,12 +296,23 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
         if (x === undefined || y === undefined) continue;
         const number = numForm ? (arg(numForm, 0) ?? '') : '';
         if (!number) continue; // pin without a number is unusable for connectivity
+        // KiCad's .kicad_sym lib_symbol frame uses +Y UP, whereas the
+        // .kicad_sch schematic frame (and SVG) uses +Y DOWN. Flip Y at
+        // extraction so everything downstream — transformLocalToWorld,
+        // the renderer, the editor — works in a single +Y-down frame.
+        // The pin's rot (compass direction the pin LINE extends) also
+        // flips when the Y axis flips: rot=90 ("up" in +Y-up) becomes
+        // rot=270 ("up" in +Y-down screen coords). Formula: rot' = (360-rot)%360.
+        const flippedRot = ((360 - rot) % 360 + 360) % 360;
+        // Normalize negative zero to plain zero so equality checks
+        // (e.g. toMatchObject({ y: 0 })) don't fail on `-0 !== 0`.
+        const flippedY = y === 0 ? 0 : -y;
         pins.push({
           number,
           name: nameForm ? (arg(nameForm, 0) ?? '') : '',
           x,
-          y,
-          rot,
+          y: flippedY,
+          rot: flippedRot,
           length: lenForm ? (argNum(lenForm, 0) ?? 0) : 0,
         });
       }
@@ -501,6 +512,21 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
 // lib_symbol shape extractor
 // ---------------------------------------------------------------------------
 
+/**
+ * lib_symbol shape extraction.
+ *
+ * Important: KiCad's .kicad_sym lib_symbol coordinate frame uses +Y UP
+ * (the same convention as the standalone symbol editor canvas), while
+ * the .kicad_sch schematic frame and SVG use +Y DOWN. We flip Y on the
+ * way out so all downstream code (transformLocalToWorld, renderer, editor)
+ * operates in a single +Y-down frame. Verified against the daanmem
+ * schematic: a +3.3V lib_symbol with arrow apex at (0, 2.54) was
+ * rendering apex-below-pin before the flip (so the arrow pointed down
+ * instead of up like KiCad displays it).
+ *
+ * For text rotation we apply rot' = (360 − rot) % 360, since flipping
+ * the Y axis reverses the visual CCW direction.
+ */
 function collectLibShapes(node: SExp, out: LibShape[]): void {
   if (!isList(node)) return;
   // Walk every direct child item (not just lists with a specific tag).
@@ -514,7 +540,7 @@ function collectLibShapes(node: SExp, out: LibShape[]): void {
         const x1 = argNum(s, 0); const y1 = argNum(s, 1);
         const x2 = argNum(e, 0); const y2 = argNum(e, 1);
         if (x1 !== undefined && y1 !== undefined && x2 !== undefined && y2 !== undefined) {
-          out.push({ kind: 'rectangle', x1, y1, x2, y2, filled: hasYellowFill(child) });
+          out.push({ kind: 'rectangle', x1, y1: -y1, x2, y2: -y2, filled: hasYellowFill(child) });
         }
       }
     } else if (tag === 'polyline') {
@@ -523,7 +549,7 @@ function collectLibShapes(node: SExp, out: LibShape[]): void {
       if (ptsForm) {
         for (const xy of children(ptsForm, 'xy')) {
           const x = argNum(xy, 0); const y = argNum(xy, 1);
-          if (x !== undefined && y !== undefined) pts.push({ x, y });
+          if (x !== undefined && y !== undefined) pts.push({ x, y: -y });
         }
       }
       if (pts.length >= 2) out.push({ kind: 'polyline', points: pts, filled: hasYellowFill(child) });
@@ -534,7 +560,7 @@ function collectLibShapes(node: SExp, out: LibShape[]): void {
         const cx = argNum(c, 0); const cy = argNum(c, 1);
         const rad = argNum(r, 0);
         if (cx !== undefined && cy !== undefined && rad !== undefined) {
-          out.push({ kind: 'circle', cx, cy, r: rad, filled: hasYellowFill(child) });
+          out.push({ kind: 'circle', cx, cy: -cy, r: rad, filled: hasYellowFill(child) });
         }
       }
     } else if (tag === 'arc') {
@@ -548,9 +574,9 @@ function collectLibShapes(node: SExp, out: LibShape[]): void {
         if ([sx, sy, mx, my, ex, ey].every((v) => v !== undefined)) {
           out.push({
             kind: 'arc',
-            sx: sx as number, sy: sy as number,
-            mx: mx as number, my: my as number,
-            ex: ex as number, ey: ey as number,
+            sx: sx as number, sy: -(sy as number),
+            mx: mx as number, my: -(my as number),
+            ex: ex as number, ey: -(ey as number),
             filled: hasYellowFill(child),
           });
         }
@@ -566,7 +592,10 @@ function collectLibShapes(node: SExp, out: LibShape[]): void {
         const x = argNum(at, 0); const y = argNum(at, 1);
         const rot = argNum(at, 2) ?? 0;
         if (x !== undefined && y !== undefined) {
-          out.push({ kind: 'text', text, x, y, rot, size });
+          // Y-flip the text position. The text rotation also reverses
+          // when the Y axis flips (CCW becomes CW): rot' = (360 − rot) % 360.
+          const flippedRot = ((360 - rot) % 360 + 360) % 360;
+          out.push({ kind: 'text', text, x, y: -y, rot: flippedRot, size });
         }
       }
     } else if (tag === 'symbol') {
