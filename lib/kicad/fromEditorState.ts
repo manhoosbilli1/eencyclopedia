@@ -10,7 +10,8 @@
  *     short form, shared root UUID in instance paths so KiCad keeps designators)
  */
 
-import type { EditorState, EditorComponent } from '@/components/schematic/editorTypes';
+import type { EditorState, EditorComponent, EditorPinLocal } from '@/components/schematic/editorTypes';
+import type { LibShape } from '@/lib/kicad/parse';
 import { drawSymbol, type PinAnchor } from '@/lib/kicad/symbols';
 
 export function fromEditorState(state: EditorState): string {
@@ -25,12 +26,24 @@ export function fromEditorState(state: EditorState): string {
   lines.push(`\t(uuid "${rootUuid}")`);
   lines.push('\t(paper "A4")');
 
-  // lib_symbols — one full stub per unique libId
+  // lib_symbols — one block per unique libId. For components that were
+  // uploaded from a real .kicad_sch we PRESERVE the original lib_symbol
+  // geometry (body shapes + actual pin positions) by emitting it back.
+  // Otherwise we fall back to a minimal generic stub. Without this the
+  // round-trip would strip all body geometry and the saved detail-page
+  // SVG would render every part as a featureless rectangle.
   const libIds = [...new Set(state.components.map((c) => c.libId))];
   if (libIds.length > 0) {
+    // Group representatives so we can read embeddedShapes / pinsLocal
+    // from any one instance of each unique libId.
+    const repByLibId = new Map<string, EditorComponent>();
+    for (const c of state.components) {
+      if (!repByLibId.has(c.libId)) repByLibId.set(c.libId, c);
+    }
     lines.push('\t(lib_symbols');
     for (const lid of libIds) {
-      lines.push(libSymbolStub(lid));
+      const rep = repByLibId.get(lid);
+      lines.push(libSymbolStub(lid, rep));
     }
     lines.push('\t)');
   }
@@ -82,17 +95,25 @@ export function fromEditorState(state: EditorState): string {
 // lib_symbol stub — KiCad 10 expects full metadata + body geometry + pins
 // ---------------------------------------------------------------------------
 
-function libSymbolStub(libId: string): string {
+function libSymbolStub(libId: string, rep?: EditorComponent): string {
   const draw = drawSymbol(libId, '');
   const safeLibId = esc(libId);
   // Inner unit name MUST NOT include the library prefix.
   const compName = libId.includes(':') ? libId.split(':')[1]! : libId;
   const unitNameBody = esc(`${compName}_0_1`);     // graphic body unit
   const unitNamePins = esc(`${compName}_1_1`);     // pin unit
-  const isPower = libId.toLowerCase().startsWith('power:');
+  const isPower = rep?.isPower ?? libId.toLowerCase().startsWith('power:');
 
   // Reference designator letter for the lib_symbol property
   const refLetter = isPower ? '#PWR' : guessRefLetter(libId);
+
+  // When the editor has the file's real lib_symbol data attached to this
+  // libId we emit those exact shapes and pins. This keeps the saved
+  // detail-page render visually identical to KiCad / the editor preview.
+  // KiCad .kicad_sym uses +Y UP, but our internal frame (post parse.ts)
+  // is +Y DOWN — so we negate Y on the way back out, and reverse the
+  // pin/text rotation by (360 − rot) % 360 (Y-flip reverses CCW).
+  const useEmbedded = !!(rep?.embeddedShapes && rep.embeddedShapes.length > 0);
 
   const out: string[] = [];
   out.push(`\t\t(symbol "${safeLibId}"`);
@@ -110,10 +131,17 @@ function libSymbolStub(libId: string): string {
   out.push(libProperty('Datasheet', '', true));
   out.push(libProperty('Description', '', true));
 
-  // Body unit (_0_1) — minimal placeholder rectangle so KiCad has something
-  // to draw besides naked pins. We size it from the glyph's halfWidth/Height.
-  // Power symbols don't need a body rectangle.
-  if (!isPower) {
+  // Body unit (_0_1) — real lib_symbol shapes when available, generic
+  // placeholder rectangle otherwise. Power symbols traditionally have
+  // their body in _0_1 too (the arrow/triangle), so we emit it for them
+  // when embedded shapes are present.
+  if (useEmbedded) {
+    out.push(`\t\t\t(symbol "${unitNameBody}"`);
+    for (const shape of rep!.embeddedShapes!) {
+      out.push(emitLibShape(shape));
+    }
+    out.push('\t\t\t)');
+  } else if (!isPower) {
     const hw = Math.max(draw.halfWidth, 1);
     const hh = Math.max(draw.halfHeight, 1);
     out.push(`\t\t\t(symbol "${unitNameBody}"`);
@@ -131,15 +159,137 @@ function libSymbolStub(libId: string): string {
     out.push('\t\t\t)');
   }
 
-  // Pin unit (_1_1) — pins with correct rotation pointing AWAY from body.
+  // Pin unit (_1_1) — use real lib pin coords/rot when available,
+  // generic glyph anchors otherwise.
   out.push(`\t\t\t(symbol "${unitNamePins}"`);
-  for (const p of draw.pins) {
-    out.push(pinDef(p, isPower));
+  if (rep?.pinsLocal && rep.pinsLocal.length > 0) {
+    for (const p of rep.pinsLocal) {
+      out.push(pinDefFromLocal(p, isPower));
+    }
+  } else {
+    for (const p of draw.pins) {
+      out.push(pinDef(p, isPower));
+    }
   }
   out.push('\t\t\t)');
 
   out.push('\t\t\t(embedded_fonts no)');
   out.push('\t\t)');
+  return out.join('\n');
+}
+
+/** Serialise one LibShape back into a (rectangle|polyline|circle|arc|text)
+ *  block. Inverts the Y-flip parse.ts applied on extraction so the result
+ *  is back in KiCad .kicad_sym (+Y up) convention. */
+function emitLibShape(s: LibShape): string {
+  const sw = '0.2032';
+  switch (s.kind) {
+    case 'rectangle':
+      return [
+        '\t\t\t\t(rectangle',
+        `\t\t\t\t\t(start ${n(s.x1)} ${n(-s.y1)})`,
+        `\t\t\t\t\t(end ${n(s.x2)} ${n(-s.y2)})`,
+        '\t\t\t\t\t(stroke',
+        `\t\t\t\t\t\t(width ${sw})`,
+        '\t\t\t\t\t\t(type default)',
+        '\t\t\t\t\t)',
+        '\t\t\t\t\t(fill',
+        `\t\t\t\t\t\t(type ${s.filled ? 'background' : 'none'})`,
+        '\t\t\t\t\t)',
+        '\t\t\t\t)',
+      ].join('\n');
+    case 'polyline': {
+      const pts = s.points
+        .map((p) => `(xy ${n(p.x)} ${n(-p.y)})`)
+        .join(' ');
+      return [
+        '\t\t\t\t(polyline',
+        '\t\t\t\t\t(pts',
+        `\t\t\t\t\t\t${pts}`,
+        '\t\t\t\t\t)',
+        '\t\t\t\t\t(stroke',
+        `\t\t\t\t\t\t(width ${sw})`,
+        '\t\t\t\t\t\t(type default)',
+        '\t\t\t\t\t)',
+        '\t\t\t\t\t(fill',
+        `\t\t\t\t\t\t(type ${s.filled ? 'background' : 'none'})`,
+        '\t\t\t\t\t)',
+        '\t\t\t\t)',
+      ].join('\n');
+    }
+    case 'circle':
+      return [
+        '\t\t\t\t(circle',
+        `\t\t\t\t\t(center ${n(s.cx)} ${n(-s.cy)})`,
+        `\t\t\t\t\t(radius ${n(s.r)})`,
+        '\t\t\t\t\t(stroke',
+        `\t\t\t\t\t\t(width ${sw})`,
+        '\t\t\t\t\t\t(type default)',
+        '\t\t\t\t\t)',
+        '\t\t\t\t\t(fill',
+        `\t\t\t\t\t\t(type ${s.filled ? 'background' : 'none'})`,
+        '\t\t\t\t\t)',
+        '\t\t\t\t)',
+      ].join('\n');
+    case 'arc':
+      return [
+        '\t\t\t\t(arc',
+        `\t\t\t\t\t(start ${n(s.sx)} ${n(-s.sy)})`,
+        `\t\t\t\t\t(mid ${n(s.mx)} ${n(-s.my)})`,
+        `\t\t\t\t\t(end ${n(s.ex)} ${n(-s.ey)})`,
+        '\t\t\t\t\t(stroke',
+        `\t\t\t\t\t\t(width ${sw})`,
+        '\t\t\t\t\t\t(type default)',
+        '\t\t\t\t\t)',
+        '\t\t\t\t\t(fill',
+        `\t\t\t\t\t\t(type ${s.filled ? 'background' : 'none'})`,
+        '\t\t\t\t\t)',
+        '\t\t\t\t)',
+      ].join('\n');
+    case 'text': {
+      // rot was flipped on extraction; reverse it here so the file
+      // round-trip matches the original.
+      const fileRot = ((360 - s.rot) % 360 + 360) % 360;
+      return [
+        `\t\t\t\t(text "${esc(s.text)}"`,
+        `\t\t\t\t\t(at ${n(s.x)} ${n(-s.y)} ${fileRot})`,
+        '\t\t\t\t\t(effects',
+        '\t\t\t\t\t\t(font',
+        `\t\t\t\t\t\t\t(size ${n(s.size)} ${n(s.size)})`,
+        '\t\t\t\t\t\t)',
+        '\t\t\t\t\t)',
+        '\t\t\t\t)',
+      ].join('\n');
+    }
+  }
+}
+
+/** Emit a (pin …) block from real KiCad lib pin coords (our internal
+ *  +Y-down frame), reversing the Y-flip + rotation reversal applied on
+ *  extraction. */
+function pinDefFromLocal(p: EditorPinLocal, isPower: boolean): string {
+  const electricalType = isPower ? 'power_in' : 'passive';
+  const fileRot = ((360 - (p.rot ?? 0)) % 360 + 360) % 360;
+  const len = p.length ?? 0;
+  const out: string[] = [];
+  out.push(`\t\t\t\t(pin ${electricalType} line`);
+  out.push(`\t\t\t\t\t(at ${n(p.x)} ${n(-p.y)} ${fileRot})`);
+  out.push(`\t\t\t\t\t(length ${n(len)})`);
+  out.push('\t\t\t\t\t(name "~"');
+  out.push('\t\t\t\t\t\t(effects');
+  out.push('\t\t\t\t\t\t\t(font');
+  out.push('\t\t\t\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t)');
+  out.push(`\t\t\t\t\t(number "${esc(p.number)}"`);
+  out.push('\t\t\t\t\t\t(effects');
+  out.push('\t\t\t\t\t\t\t(font');
+  out.push('\t\t\t\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t\t)');
+  out.push('\t\t\t\t\t)');
+  out.push('\t\t\t\t)');
   return out.join('\n');
 }
 
@@ -248,17 +398,38 @@ function symbolBlock(comp: EditorComponent, rootUuid: string): string {
 
   // Properties — Reference, Value mandatory; Footprint/Datasheet/Description
   // always emitted (even blank) because KiCad rewrites the file with these.
-  out.push(propertyBlock('Reference', comp.designator, comp.x - 4, comp.y - 4, false));
-  out.push(propertyBlock('Value', comp.value, comp.x + 2, comp.y + 4, false));
-  out.push(propertyBlock('Footprint', comp.footprint ?? '', comp.x, comp.y, true));
-  out.push(propertyBlock('Datasheet', comp.datasheet ?? '', comp.x, comp.y, true));
-  out.push(propertyBlock('Description', '', comp.x, comp.y, true));
-  if (comp.mpn) {
-    out.push(propertyBlock('MPN', comp.mpn, comp.x, comp.y + 6, true));
+  // When the editor has the original file's property positions/rotations
+  // (comp.properties), reuse them so the saved kicad_sch keeps KiCad's
+  // exact label layout. Otherwise fall back to sensible auto-placements.
+  const findProp = (name: string) => comp.properties?.find((p) => p.name === name);
+  const refProp = findProp('Reference');
+  const valProp = findProp('Value');
+  const footProp = findProp('Footprint');
+  const dsProp = findProp('Datasheet');
+  const descProp = findProp('Description');
+  const mpnProp = findProp('MPN') ?? findProp('mpn');
+  out.push(propertyBlockFor('Reference', comp.designator, refProp,
+    comp.x - 4, comp.y - 4, 0, false));
+  out.push(propertyBlockFor('Value', comp.value, valProp,
+    comp.x + 2, comp.y + 4, 0, false));
+  out.push(propertyBlockFor('Footprint', comp.footprint ?? '', footProp,
+    comp.x, comp.y, 0, true));
+  out.push(propertyBlockFor('Datasheet', comp.datasheet ?? '', dsProp,
+    comp.x, comp.y, 0, true));
+  out.push(propertyBlockFor('Description', '', descProp,
+    comp.x, comp.y, 0, true));
+  if (comp.mpn || mpnProp) {
+    out.push(propertyBlockFor('MPN', comp.mpn ?? mpnProp?.text ?? '', mpnProp,
+      comp.x, comp.y + 6, 0, true));
   }
 
-  // Pin stubs — KiCad 10 short form: (pin "<num>" (uuid "<u>"))
-  for (const p of draw.pins) {
+  // Pin stubs — KiCad 10 short form: (pin "<num>" (uuid "<u>")).
+  // Use the file's real pin numbers when available so the saved kicad_sch
+  // round-trips with the same numbering KiCad would write.
+  const stubPins: Array<{ number: string }> = comp.pinsLocal && comp.pinsLocal.length > 0
+    ? comp.pinsLocal.map((p) => ({ number: p.number }))
+    : draw.pins.map((p) => ({ number: p.number }));
+  for (const p of stubPins) {
     out.push(`\t\t(pin "${esc(p.number)}"`);
     out.push(`\t\t\t(uuid "${randomUuid()}")`);
     out.push('\t\t)');
@@ -283,6 +454,36 @@ function propertyBlock(
   const out: string[] = [];
   out.push(`\t\t(property "${esc(name)}" "${esc(value)}"`);
   out.push(`\t\t\t(at ${n(x)} ${n(y)} 0)`);
+  out.push('\t\t\t(effects');
+  out.push('\t\t\t\t(font');
+  out.push('\t\t\t\t\t(size 1.27 1.27)');
+  out.push('\t\t\t\t)');
+  if (hide) out.push('\t\t\t\t(hide yes)');
+  out.push('\t\t\t)');
+  out.push('\t\t)');
+  return out.join('\n');
+}
+
+/** Emit a property block. When `prop` is provided (preserved from the
+ *  source file), use its x/y/rot/hide; otherwise fall back to the
+ *  given defaults. Instance property `at` is in schematic world coords
+ *  (no Y-flip needed — those didn't get flipped on extraction). */
+function propertyBlockFor(
+  name: string,
+  value: string,
+  prop: { x: number; y: number; rot: number; hide: boolean } | undefined,
+  fallbackX: number,
+  fallbackY: number,
+  fallbackRot: number,
+  fallbackHide: boolean,
+): string {
+  const x = prop?.x ?? fallbackX;
+  const y = prop?.y ?? fallbackY;
+  const rot = prop?.rot ?? fallbackRot;
+  const hide = prop?.hide ?? fallbackHide;
+  const out: string[] = [];
+  out.push(`\t\t(property "${esc(name)}" "${esc(value)}"`);
+  out.push(`\t\t\t(at ${n(x)} ${n(y)} ${n(rot)})`);
   out.push('\t\t\t(effects');
   out.push('\t\t\t\t(font');
   out.push('\t\t\t\t\t(size 1.27 1.27)');
