@@ -239,11 +239,19 @@ export default async function CircuitPage({ params }: Params) {
     }
   }
 
-  const bomPanelRows = bomRows.map((r) => ({
-    designator: typeof r.designator === 'string' ? r.designator : '?',
-    value: typeof r.value === 'string' ? r.value : '',
-    mpn: null,
-  }));
+  // KiCad auto-generates `#PWR…` reference designators for every power
+  // symbol (`+3.3V`, `GND`, `5V`, …). These aren't physical parts you'd
+  // ever buy from LCSC, so they have no real LCSC match — the search just
+  // ends up matching the Value text to some unrelated SKU (e.g. "+3.3V"
+  // → some C25804 resistor). Drop them from the BOM so it lists only
+  // sourceable components.
+  const bomPanelRows = bomRows
+    .map((r) => ({
+      designator: typeof r.designator === 'string' ? r.designator : '?',
+      value: typeof r.value === 'string' ? r.value : '',
+      mpn: null,
+    }))
+    .filter((r) => !r.designator.startsWith('#'));
 
   return (
     <main className="mx-auto flex min-h-[calc(100dvh-3.5rem)] max-w-3xl flex-col px-6 py-12">

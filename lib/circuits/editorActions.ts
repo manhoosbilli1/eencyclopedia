@@ -157,11 +157,15 @@ export async function saveSchematicEdits(
     // eslint-disable-next-line no-console
     console.warn('[editor.save] schematic_components delete failed:', deleteErr.message);
   } else {
-    const compRows = canonical.components.map((comp) => ({
-      schematic_id: circuitId,
-      designator: comp.designator,
-      value: comp.value,
-    }));
+    // Skip #PWR power symbols — see syncSchematicComponents in actions.ts
+    // for the same filter and rationale.
+    const compRows = canonical.components
+      .filter((comp) => !comp.designator.startsWith('#'))
+      .map((comp) => ({
+        schematic_id: circuitId,
+        designator: comp.designator,
+        value: comp.value,
+      }));
     if (compRows.length > 0) {
       const { error: insertErr } = await supabase
         .from('schematic_components')
@@ -335,12 +339,15 @@ export async function forkSchematic(
     } as never)
     .eq('id', newId);
 
-  // Components index for the fork.
-  const compRows = canonical.components.map((comp) => ({
-    schematic_id: newId,
-    designator: comp.designator,
-    value: comp.value,
-  }));
+  // Components index for the fork. Drop #PWR power symbols — they're
+  // not sourceable parts, just net annotations.
+  const compRows = canonical.components
+    .filter((comp) => !comp.designator.startsWith('#'))
+    .map((comp) => ({
+      schematic_id: newId,
+      designator: comp.designator,
+      value: comp.value,
+    }));
   if (compRows.length > 0) {
     await supabase.from('schematic_components').insert(compRows as never);
   }
