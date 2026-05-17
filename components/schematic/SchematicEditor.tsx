@@ -2724,14 +2724,18 @@ function ComponentEl({
         dangerouslySetInnerHTML={{ __html: embeddedSvg ?? draw!.svg }}
       />
 
-      {/* Labels (not for power symbols).
+      {/* Labels.
           When the source .kicad_sch file carries explicit (property … (at x y rot))
           positions for Reference and Value, we honour them: KiCad-faithful
           rendering REQUIRES placing the text exactly where KiCad placed it,
           rather than recomputing from a bounding box. Falls back to a sensible
           default position for editor-placed components or files missing property
-          positions. */}
-      {!isPower && (() => {
+          positions.
+          Power symbols (#PWR, power:*) show ONLY the Value (e.g. "+3.3V",
+          "GND") — KiCad hides the auto-generated Reference (#PWR01 etc) by
+          default via `(hide yes)` on the Reference property's effects, which
+          our renderLabel respects. */}
+      {(() => {
         const refProp = comp.properties?.find((p) => p.name === 'Reference');
         const valProp = comp.properties?.find((p) => p.name === 'Value');
 
@@ -2781,8 +2785,12 @@ function ComponentEl({
 
         return (
           <>
-            {/* Designator — KiCad property "Reference" */}
-            {editing ? (
+            {/* Designator — KiCad property "Reference". KiCad's stock
+                power lib_symbols flag this property `(hide yes)`, and our
+                renderLabel respects that. We still suppress it explicitly
+                for editor-placed power symbols (which have no properties
+                array) so #PWR1-style designators don't leak into the canvas. */}
+            {!isPower && editing ? (
               <foreignObject x={comp.x - 9} y={comp.y - hh - 3.5} width={18} height={4}>
                 <input
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2805,14 +2813,14 @@ function ComponentEl({
                   }}
                 />
               </foreignObject>
-            ) : (
+            ) : !isPower ? (
               renderLabel(
                 comp.designator,
                 comp.x, comp.y - hh - 1,
                 refProp,
                 1.27, '600', desigFill,
               )
-            )}
+            ) : null}
 
             {/* Value — KiCad property "Value" */}
             {editing ? (

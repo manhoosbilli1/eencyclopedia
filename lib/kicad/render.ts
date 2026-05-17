@@ -127,8 +127,11 @@ function renderComponent(
     glyphGroup = `<g class="comp-body" transform="${xform}">${desc}${draw.svg}</g>`;
   }
 
-  // Labels — always visible, positioned relative to world midpoint
-  const labelGroup = isPower ? '' : renderComponentLabel(comp);
+  // Labels — Reference + Value for normal parts. Power symbols still need
+  // the Value (e.g. "+3.3V", "GND") visible; KiCad's stock power lib_symbols
+  // mark their Reference property `(hide yes)` so renderComponentLabel
+  // will skip Reference automatically for them.
+  const labelGroup = renderComponentLabel(comp);
 
   const dataAttrs = [
     `class="comp-wrap"`,
