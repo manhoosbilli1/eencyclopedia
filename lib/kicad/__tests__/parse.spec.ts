@@ -124,18 +124,22 @@ describe('parseKiCadSchematic', () => {
     expect(sch.symbols).toHaveLength(1);
   });
 
-  it('extracts lib_symbols pin geometry', () => {
+  it('extracts lib_symbols pin geometry (with Y-flip from .kicad_sym frame)', () => {
     // Fixture mirrors the structure in a real KiCad 9 file: lib_symbols
     // wraps each used type, which has a nested unit symbol holding the
     // (pin … (at x y rot) … (number "n")) entries.
+    //
+    // parse.ts Y-flips lib_symbol coords on extraction (KiCad .kicad_sym
+    // is +Y-up; the schematic frame is +Y-down). We use y=1.27 in the
+    // fixture so the flip is observable.
     const src = `
       (kicad_sch (version 20231120) (generator "eeschema")
         (lib_symbols
           (symbol "Device:LED"
             (symbol "LED_1_1"
-              (pin passive line (at -3.81 0 0) (length 2.54)
+              (pin passive line (at -3.81 1.27 0) (length 2.54)
                 (name "K") (number "1"))
-              (pin passive line (at 3.81 0 180) (length 2.54)
+              (pin passive line (at 3.81 1.27 180) (length 2.54)
                 (name "A") (number "2")))))
         (symbol (lib_id "Device:LED") (at 100 100 0)
           (property "Reference" "D1" "")
@@ -145,9 +149,11 @@ describe('parseKiCadSchematic', () => {
     expect(led).toBeDefined();
     expect(led!.pins).toHaveLength(2);
     const k = led!.pins.find((p) => p.number === '1');
-    expect(k).toMatchObject({ name: 'K', x: -3.81, y: 0 });
+    // y=1.27 in lib (+Y-up) → −1.27 in +Y-down. rot=0 stays 0.
+    expect(k).toMatchObject({ name: 'K', x: -3.81, y: -1.27, rot: 0 });
     const a = led!.pins.find((p) => p.number === '2');
-    expect(a).toMatchObject({ name: 'A', x: 3.81, y: 0 });
+    // rot=180 is invariant under Y-flip.
+    expect(a).toMatchObject({ name: 'A', x: 3.81, y: -1.27, rot: 180 });
   });
 });
 
