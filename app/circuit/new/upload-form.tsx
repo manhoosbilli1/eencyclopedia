@@ -207,14 +207,22 @@ export function UploadForm() {
   }, [parseSource]);
 
   // Override form submit to inject the right source. Preference order:
-  //   1. If the user EDITED the schematic in the editor → send round-tripped
-  //      serialized state so their edits are preserved.
-  //   2. Otherwise → send the original uploaded source so the saved circuit
-  //      preserves the file's KiCad-authentic lib_symbol geometry (the
-  //      round-trip currently rebuilds lib_symbols from generic glyphs).
+  //   1. If a bounding-box crop matched OR the user edited in the editor
+  //      → send the round-tripped serialized state. This guarantees:
+  //        (a) the stored .kicad_sch contains ONLY the cropped sub-circuit
+  //            (not the whole project sheet), so the user's bandwidth /
+  //            storage footprint stays small and the downloadable kicad_sch
+  //            opens up exactly the curated portion in KiCad.
+  //        (b) any in-editor edits are preserved.
+  //      fromEditorState now embeds the original lib_symbol geometry so
+  //      KiCad-authentic rendering survives the round-trip.
+  //   2. Otherwise (no crop, no edits) → send the original uploaded source
+  //      to keep the highest fidelity (comments, unusual fields, etc.).
   // In both cases we drop the `file` field so the server uses pasted_source.
   const handleSubmit = useCallback(async (formData: FormData) => {
-    const useEditorState = hasEdits && serializedRef.current.length > 0;
+    const wasCropped = cropInfo !== null;
+    const useEditorState =
+      (wasCropped || hasEdits) && serializedRef.current.length > 0;
     const payload = useEditorState
       ? serializedRef.current
       : originalSourceRef.current;
@@ -223,7 +231,7 @@ export function UploadForm() {
       formData.delete('file');
     }
     return formAction(formData);
-  }, [formAction, hasEdits]);
+  }, [formAction, hasEdits, cropInfo]);
 
   const canSubmit =
     title.trim().length > 0 &&

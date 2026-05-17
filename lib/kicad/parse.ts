@@ -378,17 +378,31 @@ export function parseKiCadSchematic(src: string): KiCadSchematic {
       const px = pAt ? argNum(pAt, 0) ?? 0 : 0;
       const py = pAt ? argNum(pAt, 1) ?? 0 : 0;
       const prot = pAt ? argNum(pAt, 2) ?? 0 : 0;
-      // KiCad 9+ uses `(hide yes)` inside `(effects …)`; earlier versions use
-      // a bare `hide` atom inside effects. We check both.
+      // KiCad's hide flag lives in different places across format versions:
+      //   - KiCad 9 (20250114+): `(hide yes)` is a DIRECT child of the
+      //     property block, e.g.
+      //       (property "Reference" "#PWR074"
+      //         (at …) (hide yes) (show_name no) (effects (font …)))
+      //   - Older KiCad: `(hide yes)` lives inside (effects …)
+      //   - Even older: bare `hide` atom inside (effects …)
+      // We check all three so the #PWR designator stays hidden across
+      // every format version we ingest.
       let hide = false;
-      const effects = firstChild(p, 'effects');
-      if (effects) {
-        const hideForm = firstChild(effects, 'hide');
-        if (hideForm) {
-          const hv = arg(hideForm, 0);
-          hide = hv === 'yes' || hv === undefined;
-        } else if (effects.items.some((it) => isAtom(it) && it.value === 'hide')) {
-          hide = true;
+      const directHide = firstChild(p, 'hide');
+      if (directHide) {
+        const hv = arg(directHide, 0);
+        hide = hv === 'yes' || hv === undefined;
+      }
+      if (!hide) {
+        const effects = firstChild(p, 'effects');
+        if (effects) {
+          const hideForm = firstChild(effects, 'hide');
+          if (hideForm) {
+            const hv = arg(hideForm, 0);
+            hide = hv === 'yes' || hv === undefined;
+          } else if (effects.items.some((it) => isAtom(it) && it.value === 'hide')) {
+            hide = true;
+          }
         }
       }
       properties.push({ name, value: v, x: px, y: py, rot: prot, hide });
