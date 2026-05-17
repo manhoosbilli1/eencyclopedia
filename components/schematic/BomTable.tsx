@@ -49,6 +49,13 @@ function buildBomRows(components: EditorComponent[]): BomRow[] {
   const groups = new Map<string, BomRow>();
 
   for (const comp of components) {
+    // Skip power symbols (#PWR…). They aren't sourceable parts and
+    // pollute the BOM with junk LCSC matches against their Value text.
+    if (
+      comp.designator.startsWith('#')
+      || comp.isPower
+      || comp.libId.toLowerCase().startsWith('power:')
+    ) continue;
     const key = `${comp.value}|${comp.libId}`;
     const existing = groups.get(key);
     if (existing) {

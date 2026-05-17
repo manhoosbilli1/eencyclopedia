@@ -889,11 +889,16 @@ async function syncSchematicComponents(
     throw new Error(`Could not clear old component rows: ${deleteErr.message}`);
   }
 
-  const rows = canonical.components.map((component) => ({
-    schematic_id: circuitId,
-    designator: component.designator,
-    value: component.value,
-  }));
+  // Skip power symbols (`#PWR…`). They're not physical sourceable parts;
+  // they only annotate the schematic with global net names. Including them
+  // here pollutes the BOM and the AI summary with junk LCSC matches.
+  const rows = canonical.components
+    .filter((component) => !component.designator.startsWith('#'))
+    .map((component) => ({
+      schematic_id: circuitId,
+      designator: component.designator,
+      value: component.value,
+    }));
   if (rows.length === 0) return;
 
   const { error: insertErr } = await supabase
